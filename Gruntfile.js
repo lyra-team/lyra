@@ -3,12 +3,9 @@ module.exports = function(grunt) {
 		pkg: grunt.file.readJSON('package.json'),
 		typescript: {
 			base: {
-				src: ['src/ts/**/*.ts'],
-				dest: 'build/js/',
-				options: {
-					basePath: 'src/ts'
-				}
-			}
+                src: ['src/ts/**/*.ts'],
+                dest: 'build/js/main.js'
+            }
 		},
 		copy: {
 			main: {
@@ -25,7 +22,7 @@ module.exports = function(grunt) {
 		},
 		watch: {
 			ts: {
-				files: ['src/js/**/*.ts'],
+				files: ['src/ts/**/*.ts'],
 				tasks: ['build']
 			},
 			public: {
