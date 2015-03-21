@@ -80,20 +80,20 @@ module game {
                 "found" : "Tracking face"
             };
 
-            document.addEventListener("headtrackrStatus", function(event) {
-                if (event.status in supportMessages) {
+            document.addEventListener("headtrackrStatus", (event:any) => {
+                // if (event.status in supportMessages) {
                     // var messagep = document.getElementById('gUMMessage');
                     // messagep.innerHTML = supportMessages[event.status];
-                } else if (event.status in statusMessages) {
-                    console.log(constatusMessages[event.status]);
+                if (event.status in statusMessages) {
+                    console.log(statusMessages[event.status]);
                 }
             }, true);
 
-            document.addEventListener("headtrackingEvent", (event) => {
+            document.addEventListener("headtrackingEvent", (event:any) => {
                 this.onHeadMoved(event.x, event.y, event.z);
             });
 
-            this.htracker = new headtrackr.Tracker();
+            this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
             this.htracker.init(ui.$("inputVideo"),ui.$("inputCanvas"));
             this.htracker.start();
         }
@@ -283,18 +283,18 @@ module game {
 
         renderMap() {
             var keyPoints = new Float32Array([
-                    5, 0, 1.1,
-                    6, 0, 1.5,
-                    7, 0, 1.1,
-                    8, 0.1, 1.1,
-                    9, 0.0, 1.1,
-                    10, 0.0, 1.1
-                ]),
+                5, 0, 1.1,
+                6, 0, 1.5,
+                7, 0, 1.1,
+                8, 0.1, 1.1,
+                9, 0.0, 1.1,
+                10, 0.0, 1.1
+            ]),
                 keyPointCount = keyPoints.length / 3,
                 sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0, 1, 0),
-                indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
+                indicies = this.createIndiciesLines(keyPointCount, STRIP_COUNT),
                 normals = this.generateNormals(points, indicies);
 
             this.posBuf.uploadData(points);
@@ -330,7 +330,7 @@ module game {
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
         }
 
         private renderLights() {
