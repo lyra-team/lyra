@@ -40,33 +40,42 @@ module rectangle {
         indBuf = new webgl.ElementArrayBuffer();
     }
 
+    function toPowerOfTwo(n) {
+        n--;
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        n++;
+        return n;
+    }
+
     function precalculate ()
     {
         console.log("123");
 
         var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        console.log("123");
-        
         var request = new XMLHttpRequest();
         request.open('GET', 'metallica.mp3', true);
         request.responseType = 'arraybuffer';
-
-        console.log("123");
 
         request.onload = function() {
             var audioData = request.response;
 
                 audioCtx.decodeAudioData(audioData, function(buffer) {
+
                 console.log(buffer.length);
 
-                var offlineCtx = new OfflineAudioContext(1, buffer.length, 22050);
+                var sz = toPowerOfTwo(buffer.length);
+                var offlineCtx = new OfflineAudioContext(1, sz, 22050);
                 var source = offlineCtx.createBufferSource();
-                
+
                 source.buffer = buffer;
-            
+
                 source.connect(offlineCtx.destination);
-                
+
                 source.start();
                 offlineCtx.startRendering();
 
@@ -75,29 +84,13 @@ module rectangle {
                     var song = audioCtx.createBufferSource();
                     song.buffer = e.renderedBuffer;
                     song.connect(audioCtx.destination);
-                    
+
                     var channelData = song.buffer.getChannelData(0);
-                    var current_sum = 0, current_cnt = 0, width = 1000;
-                    
-                    amplitude = new Array(channelData.length)
+                    channelData = window_(channelData, windows.hann, 10);
 
-                    for (var l = -1, r = 0, i = 0; i < channelData.length; i++) {
-                        while (l < i - width) {
-                            if (l >= 0)
-                                current_sum -= Math.abs(channelData[l]);
-                            l++;
-                            current_cnt--;
-                        }
-
-                        while (r < i + width && r < channelData.length) {
-                            current_cnt++;
-                            current_sum += Math.abs(channelData[r]);
-
-                            r++;
-                        } 
-
-                        amplitude[i] = current_sum / current_cnt;
-                    }   
+                    var complex = new complex_array.ComplexArray(channelData);
+                    console.log(complex.length);
+                    complex.FFT();
 
                     song.start();
                     loop();
@@ -108,10 +101,10 @@ module rectangle {
         request.send();
     }
 
-        
     function loop() {
         makeFullPage();
-        var current = amplitude[num] * 500000; 
+        // var current = amplitude[num] * 500000 / 15;
+        var current = 0;
         var r = current, g = current, b = current;
         console.log(current);
         num++;

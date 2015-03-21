@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+	<title>Hello world</title>
+	<script src='js/main.js'></script>
+    <script src="js/headtrackr.js"></script>
+</head>
+<body>
+	<!-- <h1>Hello world</h1> -->
+
+    <canvas id="inputCanvas" width="320" height="240" style="display:none"></canvas>
+    <video id="inputVideo" autoplay loop></video>
+    <canvas id="overlay" width="320" height="240"></canvas>
+    <p>Status : <span id='headtrackerMessage'></span></p>
+    <p><input type="button" onclick="htracker.stop();htracker.start();" value="reinitiate facedetection"></input>
+
+    <script type="text/javascript">
+        var videoInput = document.getElementById('inputVideo');
+        var canvasInput = document.getElementById('inputCanvas');
+        var canvasOverlay = document.getElementById('overlay');
+        var overlayContext = canvasOverlay.getContext('2d');
+
+
+        canvasOverlay.style.position = "absolute";
+        canvasOverlay.style.top = '0px';
+        canvasOverlay.style.zIndex = '100001';
+        canvasOverlay.style.display = 'block';
+
+        statusMessages = {
+            "whitebalance" : "checking for stability of camera whitebalance",
+            "detecting" : "Detecting face",
+            "hints" : "Hmm. Detecting the face is taking a long time",
+            "redetecting" : "Lost track of face, redetecting",
+            "lost" : "Lost track of face",
+            "found" : "Tracking face"
+        };
+
+        document.addEventListener("headtrackrStatus", function(event) {
+            if (event.status in supportMessages) {
+                // var messagep = document.getElementById('gUMMessage');
+                // messagep.innerHTML = supportMessages[event.status];
+            } else if (event.status in statusMessages) {
+                var messagep = document.getElementById('headtrackerMessage');
+                messagep.innerHTML = statusMessages[event.status];
+            }
+        }, true);
+
+        // // for each facetracking event received draw rectangle around tracked face on canvas
+
+        document.addEventListener("facetrackingEvent", function( event ) {
+            // clear canvas
+            overlayContext.clearRect(0,0,320,240);
+            // once we have stable tracking, draw rectangle
+            if (event.detection == "CS") {
+                overlayContext.translate(event.x, event.y)
+                overlayContext.rotate(event.angle-(Math.PI/2));
+                overlayContext.strokeStyle = "#00CC00";
+                overlayContext.strokeRect((-(event.width/2)) >> 0, (-(event.height/2)) >> 0, event.width, event.height);
+                overlayContext.rotate((Math.PI/2)-event.angle);
+                overlayContext.translate(-event.x, -event.y);
+                console.log(event.angle);
+            }
+        });
+
+        var htracker = new headtrackr.Tracker({calcAngles : true, headPosition : false});
+        htracker.init(videoInput, canvasInput);
+        htracker.start();
+    </script>
+
+</body>
+</html>
