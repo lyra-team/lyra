@@ -278,7 +278,8 @@ module game {
         }
 
         private getShipTilt() {
-
+            //todo: replace
+            return this.head[0] * 4 * Math.PI/ 180;
         }
 
         renderMap() {
