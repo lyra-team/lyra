@@ -1,3 +1,5 @@
+///<reference path="ui.ts"/>
+
 var DROP_OVERLAY_VISIBLE = 'dropOverlay-visible';
 
 class DropOverlay {
