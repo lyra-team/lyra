@@ -177,6 +177,11 @@ module game {
                 var normal = vec3.create();
                 vec3.cross(ab, ac, normal);
                 normal = vec3.normalize(normal);
+                if (normal[2] < 0) {
+                    normal[0] = -normal[0];
+                    normal[1] = -normal[1];
+                    normal[2] = -normal[2];
+                }
                 normals[3 * i] = normal[0];
                 normals[3 * i + 1] = normal[1];
                 normals[3 * i + 2] = normal[2];
@@ -226,14 +231,24 @@ module game {
                 7, 0, 1.1,
                 8, 0.1, 1.1,
                 9, 0.0, 1.1,
-                10, 0.0, 1.1
+                10, 0.0, 1.1,
+                11, 0, 1.5,
+                12, 0, 1.1,
+                13, 0.1, 1.1,
+                14, 0.0, 1.1,
+                15, 0.0, 1.1,
+                16, 0, 1.5,
+                17, 0, 1.1,
+                18, 0.1, 1.1,
+                19, 0.0, 1.1,
+                20, 0.0, 1.1
             ]);
             var stripN = 5;
             var n = keypoints.length / 3;
             var sectorsPoints = map.generateSectionPoints(keypoints, stripN, 2, Math.PI / 2);
             var points = this.createPoints(sectorsPoints, n, stripN);
             var colors = this.createColors(points.length / 3, 0, 1, 0);
-            var indicies = this.createIndiciesLines(n, stripN);
+            var indicies = this.createIndicies(n, stripN);
             var normals = this.generateNormals(points, indicies);
 
             this.posBuf.uploadData(points);
@@ -253,7 +268,7 @@ module game {
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
         }
 
         private renderLights() {
