@@ -4,9 +4,7 @@ module ui {
     export function $<T extends HTMLElement>(id): T {
         if (typeof id === 'string')
             return <T> document.getElementById(id);
-        else if (id.nodeType && id.nodeType === 1)
-            return <T> id;
-        return null;
+        return id;
     }
 
     export function $$<T extends HTMLElement>(selector: string, root: NodeSelector = document) : T {

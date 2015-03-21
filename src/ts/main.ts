@@ -1,10 +1,12 @@
 ///<reference path='ui.ts'/>
 ///<reference path='menu.ts'/>
+///<reference path="drop.ts"/>
 
 class App {
     private mainMenu: MainMenu;
     private dropOverlay: DropOverlay;
     private audios: VK.Api.Audio[] = [];
+    private game: game.Game;
 
     private songPicker = new MainMenuSelect("Pick song");
 
@@ -25,7 +27,8 @@ class App {
 
     private AUTH_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Quick play").addOnClick((evt) => {
-
+            this.mainMenu.hide();
+            this.game.start();
         }),
         this.songPicker,
         new MainMenuButton("Logout").addOnClick((evt) => {
@@ -41,6 +44,7 @@ class App {
         this.mainMenu = new MainMenu(ui.$<HTMLElement>('mainMenu'));
         this.dropOverlay = new DropOverlay("dropOverlay");
         this.dropOverlay.setOnFileLoaded(this.onFileDropped.bind(this));
+        this.game = new game.Game(ui.$$('div.game'));
     }
 
     start() {
