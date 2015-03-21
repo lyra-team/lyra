@@ -49,7 +49,7 @@
             float distanceToLight = length(light.position - surfacePos);
             float ambient = min(1.0 / distanceToLight / distanceToLight, 0.1);
             float diffuse = max(0.0, dot(normal, -lightDirection));
-            float specular = (diffuse == 0.0) ? 0.0 : pow(max(0.0, dot(-lightDirection, reflect(lightDirection, normal))), 8.0) * 2.0;
+            float specular = 0.0;
             float attenuation = 1.0 / (1.0 + 0.03 * pow(length(light.position - surfacePos), 3.0));
             vec3 linearColor = (ambient + attenuation * (specular)) * surfaceColor;
             vec3 gamma = vec3(1.0/2.2);

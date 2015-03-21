@@ -8,6 +8,13 @@ module game {
     var LIGHTS_COUNT = 2;
     var gl;
 
+    var STRIP_COUNT = 5;
+    var TUBE_RADIUS = 5;
+    var SECTOR_ANGLE = Math.PI / 2;
+    var CAM_HEIGHT = 5;
+    var CAM_VIEW_DISTANCE = 2;
+    var CAM_BACK_OFFSET = 1;
+
     export class Game {
         private root:HTMLElement;
         private canvas:HTMLCanvasElement;
@@ -21,10 +28,10 @@ module game {
         private colBuf:webgl.ArrayBuffer;
         private indBuf:webgl.ElementArrayBuffer;
 
-        private startTime;
-        private pausedTime;
-
-        private paused = false;
+        private songBuffer;
+        private song;
+        private songLastOffset;
+        private timeLastOffset;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -56,19 +63,18 @@ module game {
             var handler = new input.InputHandler();
             handler.attach(document);
             handler.onDown(input.Key.SPACE, () => {
-                if (this.paused) {
-                    this.startTime += new Date().getTime() - this.pausedTime;
-                } else {
-                    this.pausedTime = new Date().getTime();
-                }
-                this.paused = !this.paused;
+                this.togglePause();
                 return true;
             });
         }
 
-        private makeFullPage() {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
+        private makeFullscreen() {
+            if (this.canvas.width !== this.canvas.clientWidth) {
+                this.canvas.width = this.canvas.clientWidth;
+            }
+            if (this.canvas.height !== this.canvas.clientHeight) {
+                this.canvas.height = this.canvas.clientHeight;
+            }
         }
 
         private createPoints(points, n, splinesN) {
@@ -184,18 +190,10 @@ module game {
             return normals;
         }
 
-        private createCameraMtx(x, y, z, angleOfView, course, pitch) {
-            var pMatrix = mat4.create();
-            mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 100.0, pMatrix);
-            var mvMatrix = mat4.create();
-            mat4.identity(mvMatrix);
-            mat4.rotate(mvMatrix, Math.PI / 2, [0, 1, 0]);
-            mat4.rotate(mvMatrix, -Math.PI / 2, [1, 0, 0]);
-            mat4.rotate(mvMatrix, 0, [0, 0, 1]);
-            mat4.translate(mvMatrix, [-x, -y, -z]);
-            var cameraMtx = mat4.create();
-            mat4.multiply(pMatrix, mvMatrix, cameraMtx);
-            return cameraMtx;
+        private createCameraMtx(eye, angleOfView, lookAt) {
+            var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 100.0),
+                vMatrix = mat4.lookAt(eye, lookAt, [0, 0, 1]);
+            return mat4.multiply(pMatrix, vMatrix);
         }
 
         private setUniformCameraLight(name, x, y, z, intensity, attenuation, ambient) {
@@ -205,36 +203,61 @@ module game {
             this.mapShader.uniformF(name + '.ambientCoefficient', ambient);
         }
 
-        start() {
-            this.startTime = new Date().getTime();
+        start(songBuffer: AudioBuffer) {
+            this.songBuffer = songBuffer;
+            this.song = audio.context.createBufferSource();
+            this.song.buffer = songBuffer;
+            this.song.connect(audio.context.destination);
+            this.song.start();
+            this.songLastOffset = 0;
+            this.timeLastOffset = audio.context.currentTime;
             this.loop();
         }
 
-        getTime() {
-            var curTime = new Date().getTime();
-            if (this.paused) {
-                curTime = this.pausedTime;
-            }
-            var time = (curTime - this.startTime) / 100.0;
-            return time;
+        private isPaused() {
+            return audio.context.state !== 'running';
+        }
+
+        private togglePause() {
+            if (this.isPaused())
+                this.resume();
+            else
+                this.pause();
+        }
+
+        private pause() {
+            this.songLastOffset = this.getAbsoluteTime();
+            this.timeLastOffset = audio.context.currentTime;
+            audio.context.suspend();
+        }
+
+        private resume() {
+            audio.context.resume();
+        }
+
+        private getAbsoluteTime() {
+            return audio.context.currentTime - this.timeLastOffset + this.songLastOffset;
+        }
+
+        private getRelativeTime() {
+            return this.getAbsoluteTime() / this.songBuffer.duration;
         }
 
         renderMap() {
-            var keypoints = new Float32Array([
-                5, 0, 1.1,
-                6, 0, 1.5,
-                7, 0, 1.1,
-                8, 0.1, 1.1,
-                9, 0.0, 1.1,
-                10, 0.0, 1.1
-            ]);
-            var stripN = 5;
-            var n = keypoints.length / 3;
-            var sectorsPoints = map.generateSectionPoints(keypoints, stripN, 2, Math.PI / 2);
-            var points = this.createPoints(sectorsPoints, n, stripN);
-            var colors = this.createColors(points.length / 3, 0, 1, 0);
-            var indicies = this.createIndiciesLines(n, stripN);
-            var normals = this.generateNormals(points, indicies);
+            var keyPoints = new Float32Array([
+                    5, 0, 1.1,
+                    6, 0, 1.5,
+                    7, 0, 1.1,
+                    8, 0.1, 1.1,
+                    9, 0.0, 1.1,
+                    10, 0.0, 1.1
+                ]),
+                keyPointCount = keyPoints.length / 3,
+                sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
+                points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
+                colors = this.createColors(points.length / 3, 0, 1, 0),
+                indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
+                normals = this.generateNormals(points, indicies);
 
             this.posBuf.uploadData(points);
             this.normBuf.uploadData(normals);
@@ -245,15 +268,31 @@ module game {
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
 
-            var camX = -10 + this.getTime(), camY = 0, camZ = 5;
+            function getAbsPosition(relPosition) {
+                var prevPointIdx = Math.floor(relPosition),
+                    nextPointIdx = Math.ceil(relPosition),
+                    prevPoint = util.pickVec3(keyPoints, prevPointIdx),
+                    nextPoint = util.pickVec3(keyPoints, nextPointIdx);
+                return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
+            }
+
+            var relTime = this.getRelativeTime(),
+                relPosition = relTime * keyPointCount,
+                absPosition = getAbsPosition(relPosition),
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointCount));
+
+            var offPosition = vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET),
+                eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
+                lookAt = vec3.add([0, 0, TUBE_RADIUS], absTarget);
+
             var viewAngleVert = 45;
-            this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(camX, camY, camZ, viewAngleVert, Math.PI/2, Math.PI/8));
-            this.mapShader.uniformF('uCameraPosition', camX, camY, camZ);
-            this.setUniformCameraLight('uLight', camX, camY, camZ, 2.0, 0.1, 0.5);
+            this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt));
+            this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
+            this.setUniformCameraLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
         }
 
         private renderLights() {
@@ -283,7 +322,7 @@ module game {
                 this.lightShader.uniformF('lightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
             }
             this.lightShader.uniformF('uRatio', this.canvas.height/this.canvas.width);
-            this.lightShader.uniformF('uTime', this.getTime());
+            this.lightShader.uniformF('uTime', this.getAbsoluteTime());
 
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
             gl.enable(gl.BLEND);
@@ -293,7 +332,7 @@ module game {
         }
 
         private loop() {
-            this.makeFullPage();
+            this.makeFullscreen();
 
             this.renderMap();
             this.renderLights();
