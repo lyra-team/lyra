@@ -12,7 +12,7 @@ class DropOverlay {
     constructor(id) {
         this.root = ui.$<HTMLElement>(id);
         document.addEventListener('dragenter', this.onDragStart.bind(this));
-        this.root.addEventListener('dragend', this.onDragEnd.bind(this));
+        this.root.addEventListener('dragleave', this.onDragEnd.bind(this));
         this.root.addEventListener('dragover', this.onDragOver.bind(this));
         this.root.addEventListener('drop', this.onDrop.bind(this));
     }
@@ -39,7 +39,8 @@ class DropOverlay {
     }
 
     private onDragEnd(evt) {
-        this.hide();
+        if (evt.target === this.root)
+            this.hide();
     }
 
     private onLoad(evt) {

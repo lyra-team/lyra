@@ -6,7 +6,8 @@ declare class mat4 {
     static identity(mat: mat4): mat4;
     static translate(mat: mat4, xyz: vec3, dest?: mat4): mat4;
     static rotate(mat: mat4, angle: number, axis: vec3, dest?: mat4): mat4;
-    static perspective(fovy: number, aspect: number, near: number, far: number, dest?: mat4);
+    static perspective(fovy: number, aspect: number, near: number, far: number, dest?: mat4): mat4;
+    static lookAt(eye: vec3, center: vec3, up: vec3, dest?: mat4): mat4;
     static multiply(mat1: mat4, mat2: mat4, dest?: mat4): mat4;
     static multiplyVec3(mat: mat4, vec: vec3, dest?: vec3): vec3;
 }

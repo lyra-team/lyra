@@ -10,4 +10,8 @@ declare class OfflineAudioContext
 	destination;
 	startRendering;
 	oncomplete;
-} 
+}
+
+interface AudioBuffer {
+
+}
