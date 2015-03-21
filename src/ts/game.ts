@@ -283,18 +283,18 @@ module game {
 
         renderMap() {
             var keyPoints = new Float32Array([
-                5, 0, 1.1,
-                6, 0, 1.5,
-                7, 0, 1.1,
-                8, 0.1, 1.1,
-                9, 0.0, 1.1,
-                10, 0.0, 1.1
-            ]),
+                    5, 0, 1.1,
+                    6, 0, 1.5,
+                    7, 0, 1.1,
+                    8, 0.1, 1.1,
+                    9, 0.0, 1.1,
+                    10, 0.0, 1.1
+                ]),
                 keyPointCount = keyPoints.length / 3,
                 sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0, 1, 0),
-                indicies = this.createIndiciesLines(keyPointCount, STRIP_COUNT),
+                indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
                 normals = this.generateNormals(points, indicies);
 
             this.posBuf.uploadData(points);
@@ -330,7 +330,7 @@ module game {
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
         }
 
         private renderLights() {
