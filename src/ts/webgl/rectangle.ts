@@ -15,7 +15,7 @@ module rectangle {
         canvas.height = window.innerHeight;
     }
 
-    function start(vshader, fshader) {
+    export function start(vshader, fshader) {
         var canvas = <HTMLCanvasElement> document.getElementById('gl_canvas');
         init(canvas, vshader, fshader);
         loop();
@@ -43,11 +43,12 @@ module rectangle {
             -1, 1,
             1, 1,
             1, -1]));
+        var r = 0, g = 1, b = 0;
         colBuf.uploadData(new Float32Array([
-            1, 0, 0, 1,
-            0, 1, 0, 1,
-            0, 0, 1, 1,
-            0, 1, 1, 1]));
+            r, g, b, 1,
+            r, g, b, 1,
+            r, g, b, 1,
+            r, g, b, 1]));
         indBuf.uploadData(new Uint16Array([
             0, 1, 2,
             0, 2, 3]));

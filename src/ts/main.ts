@@ -90,6 +90,3 @@ class App {
         console.log(url);
     }
 }
-
-var app = new App(4817675);
-app.start();

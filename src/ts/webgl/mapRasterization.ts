@@ -1,3 +1,5 @@
+///<reference path='../glMatrix.d.ts'/>
+
 module mapRasterization {
     export function generateSectionPoints(pathPoints: Float32Array, stripSize: number, radius: number, sectorAngle: number): Float32Array {
         function pickVec(idx: number) : vec3 {
