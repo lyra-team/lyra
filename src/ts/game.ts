@@ -33,6 +33,9 @@ module game {
         private songLastOffset;
         private timeLastOffset;
 
+        private htracker:headtrackr.Tracker;
+        private head:vec3;
+
         constructor(rootId) {
             this.root = ui.$(rootId);
             this.canvas = ui.$$<HTMLCanvasElement>("." + C_GAME_CANVAS, this.root);
@@ -66,6 +69,37 @@ module game {
                 this.togglePause();
                 return true;
             });
+
+
+            var statusMessages = {
+                "whitebalance" : "checking for stability of camera whitebalance",
+                "detecting" : "Detecting face",
+                "hints" : "Hmm. Detecting the face is taking a long time",
+                "redetecting" : "Lost track of face, redetecting",
+                "lost" : "Lost track of face",
+                "found" : "Tracking face"
+            };
+
+            document.addEventListener("headtrackrStatus", function(event) {
+                if (event.status in supportMessages) {
+                    // var messagep = document.getElementById('gUMMessage');
+                    // messagep.innerHTML = supportMessages[event.status];
+                } else if (event.status in statusMessages) {
+                    console.log(constatusMessages[event.status]);
+                }
+            }, true);
+
+            document.addEventListener("headtrackingEvent", (event) => {
+                this.onHeadMoved(event.x, event.y, event.z);
+            });
+
+            this.htracker = new headtrackr.Tracker();
+            this.htracker.init(ui.$("inputVideo"),ui.$("inputCanvas"));
+            this.htracker.start();
+        }
+
+        private onHeadMoved(x, y, z) {
+            this.head = [x, y, z];
         }
 
         private makeFullscreen() {
@@ -241,6 +275,10 @@ module game {
 
         private getRelativeTime() {
             return this.getAbsoluteTime() / this.songBuffer.duration;
+        }
+
+        private getShipTilt() {
+
         }
 
         renderMap() {

@@ -79,7 +79,10 @@ module rectangle {
                 source.start();
                 offlineCtx.startRendering();
 
+                var cnt = 0;
+
                 offlineCtx.oncomplete = function(e) {
+                    console.log("cnt " + cnt++);
                     var buffer = e.renderedBuffer;
                     var song = audioCtx.createBufferSource();
                     song.buffer = e.renderedBuffer;
