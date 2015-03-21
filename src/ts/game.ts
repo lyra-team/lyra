@@ -1,6 +1,7 @@
 ///<reference path="ui.ts"/>
 ///<reference path="webgl/gl.ts"/>
 ///<reference path="glMatrix.d.ts"/>
+///<reference path="webgl/map.ts"/>
 
 module game {
     var C_GAME_CANVAS = "game--canvas";
@@ -19,6 +20,9 @@ module game {
         private indBuf:webgl.ElementArrayBuffer;
 
         private startTime;
+        private pausedTime;
+
+        private paused = false;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -26,8 +30,6 @@ module game {
 
             this.initWebGL();
             this.initInputEvents();
-
-            this.startTime = new Date().getTime();
         }
 
         private initWebGL() {
@@ -48,9 +50,14 @@ module game {
         private initInputEvents() {
             var handler = new input.InputHandler();
             handler.attach(document);
-            handler.onDown(input.Key.W, () => {
-                console.log("W!");
-                return false;
+            handler.onDown(input.Key.SPACE, () => {
+                if (this.paused) {
+                    this.startTime += new Date().getTime() - this.pausedTime;
+                } else {
+                    this.pausedTime = new Date().getTime();
+                }
+                this.paused = !this.paused;
+                return true;
             });
         }
 
@@ -119,6 +126,39 @@ module game {
             return indicies;
         }
 
+        private createIndiciesLines(n, splinesN) {
+            var indicies = new Uint16Array((n - 1) * splinesN * 2 * 3 * 2);
+            console.assert(indicies.length <= 65535);
+            var next = 0;
+            var nextId = 0;
+            for (var i = 0; i < n - 1; i++) {
+                for (var j = 0; j < splinesN; j++) {
+                    indicies[next] = nextId;
+                    indicies[next + 1] = nextId + 1;
+
+                    indicies[next + 2 ] = nextId + 1 ;
+                    indicies[next + 3] = nextId + 2;
+
+                    indicies[next + 4] = nextId + 2;
+                    indicies[next + 5] = nextId;
+
+                    next += 6;
+                    nextId += 3;
+                    indicies[next] = nextId;
+                    indicies[next + 1] = nextId + 1;
+
+                    indicies[next + 2 ] = nextId + 1 ;
+                    indicies[next + 3] = nextId + 2;
+
+                    indicies[next + 4] = nextId + 2;
+                    indicies[next + 5] = nextId;
+                    next += 6;
+                    nextId += 3;
+                }
+            }
+            return indicies;
+        }
+
         private generateNormals(points, indicies) {
             var normals = new Float32Array(points.length);
             for (var i = 0; i < indicies.length / 3; i++) {
@@ -139,14 +179,15 @@ module game {
             return normals;
         }
 
-        private createCameraMtx(x, y, z, angleOfView) {
+        private createCameraMtx(x, y, z, angleOfView, course, pitch) {
             var pMatrix = mat4.create();
             mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 100.0, pMatrix);
             var mvMatrix = mat4.create();
             mat4.identity(mvMatrix);
-            mat4.translate(mvMatrix, [-x, -y, -z]);
             mat4.rotate(mvMatrix, Math.PI / 2, [0, 1, 0]);
             mat4.rotate(mvMatrix, -Math.PI / 2, [1, 0, 0]);
+            mat4.rotate(mvMatrix, 0, [0, 0, 1]);
+            mat4.translate(mvMatrix, [-x, -y, -z]);
             var cameraMtx = mat4.create();
             mat4.multiply(pMatrix, mvMatrix, cameraMtx);
             return cameraMtx;
@@ -160,25 +201,27 @@ module game {
         }
 
         start() {
+            this.startTime = new Date().getTime();
             this.loop();
         }
 
         private loop() {
             this.makeFullPage();
 
-            var points = this.createPoints(new Float32Array([
-                4, 2, 1,
-                4, 1, 2,
-                4, 0, 2.2,
-                4, -1, 2,
-                4, -2, 1,
-                6, 2, 1,
-                6, 1, 2,
-                6, 0, 2.2,
-                6, -1, 2,
-                6, -2, 1]), 2, 4);
-            var colors = this.createColors(4*2*3, 0, 1, 0);
-            var indicies = this.createIndicies(2, 4);
+            var keypoints = new Float32Array([
+                5, 0, 1.1,
+                6, 0, 1.5,
+                7, 0, 1.1,
+                8, 0.1, 1.1,
+                9, 0.0, 1.1,
+                10, 0.0, 1.1
+            ]);
+            var stripN = 5;
+            var n = keypoints.length / 3;
+            var sectorsPoints = map.generateSectionPoints(keypoints, stripN, 2, Math.PI / 2);
+            var points = this.createPoints(sectorsPoints, n, stripN);
+            var colors = this.createColors(points.length / 3, 0, 1, 0);
+            var indicies = this.createIndiciesLines(n, stripN);
             var normals = this.generateNormals(points, indicies);
 
             this.posBuf.uploadData(points);
@@ -191,16 +234,19 @@ module game {
             this.mapShader.vertexAttribute('aColor', this.colBuf);
 
             var curTime = new Date().getTime();
-            var time = (curTime - this.startTime) / 1000.0;
-            var camX = 0, camY = 3, camZ = 0 - time;
+            if (this.paused) {
+                curTime = this.pausedTime;
+            }
+            var time = (curTime - this.startTime) / 100.0;
+            var camX = -10 + time, camY = 0, camZ = 5;
             var viewAngleVert = 45;
-            this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(camX, camY, camZ, viewAngleVert));
+            this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(camX, camY, camZ, viewAngleVert, Math.PI/2, Math.PI/8));
             this.mapShader.uniformF('uCameraPosition', camX, camY, camZ);
             this.setUniformLight('uLight', camX, camY, camZ, 2.0, 0.1, 0.5);
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
             window.requestAnimationFrame(this.loop.bind(this));
         }
     }
