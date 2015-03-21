@@ -40,6 +40,9 @@ module game {
         private hackBuf:webgl.ArrayBuffer;
         private indBuf:webgl.ElementArrayBuffer;
 
+        private posRectBuf:webgl.ArrayBuffer;
+        private indRectBuf:webgl.ElementArrayBuffer;
+
         private songBuffer;
         private song;
         private songLastOffset;
@@ -73,6 +76,9 @@ module game {
             this.colBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.hackBuf = new webgl.ArrayBuffer(1, gl.FLOAT);
             this.indBuf = new webgl.ElementArrayBuffer();
+
+            this.posRectBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.indRectBuf = new webgl.ElementArrayBuffer();
         }
 
         private initInputEvents() {
@@ -248,7 +254,7 @@ module game {
         }
 
         private createCameraMtx(eye, angleOfView, lookAt) {
-            var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 100.0),
+            var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 300.0),
                 vMatrix = mat4.lookAt(eye, lookAt, [0, 0, 1]);
             return mat4.multiply(pMatrix, vMatrix);
         }
@@ -268,6 +274,7 @@ module game {
             this.song.start();
             this.songLastOffset = 0;
             this.timeLastOffset = audio.context.currentTime;
+            this.uploadMapBufs();
             this.loop();
         }
 
@@ -305,7 +312,7 @@ module game {
             return this.head[0] * 4 * Math.PI/ 180;
         }
 
-        renderMap() {
+        private uploadMapBufs() {
             var keyPointCount = keyPoints.length / 3,
                 sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
@@ -314,14 +321,15 @@ module game {
                 normals = this.generateNormals(points, indicies),
                 hacks = this.generateHacks(points.length / 3);
 
-
             this.posBuf.uploadData(points);
             this.normBuf.uploadData(normals);
             this.colBuf.uploadData(colors);
             this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
+        }
 
-            this.mapShader.vertexAttribute('aNormal', this.normBuf);
+        private renderMap() {
+            //this.mapShader.vertexAttribute('aNormal', this.normBuf);TODO: fix errors!
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
@@ -335,9 +343,9 @@ module game {
             }
 
             var relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointCount,
+                relPosition = relTime * keyPoints.length / 3,
                 absPosition = getAbsPosition(relPosition),
-                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointCount));
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPoints.length / 3));
 
             var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
                 eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
@@ -354,7 +362,7 @@ module game {
         }
 
         private renderLights() {
-            this.lightShader.vertexAttribute('aPosition', this.posBuf);
+            this.lightShader.vertexAttribute('aPosition', this.posRectBuf);
 
             var screenCorners = new Float32Array([
                 -1, -1, 0,
@@ -362,10 +370,10 @@ module game {
                 1, 1, 0,
                 1, -1, 0
             ]);
-            this.posBuf.uploadData(screenCorners);
-            this.indBuf.uploadData(new Uint16Array([0, 1, 2, 0, 2, 3]));
+            this.posRectBuf.uploadData(screenCorners);
+            this.indRectBuf.uploadData(new Uint16Array([0, 1, 2, 0, 2, 3]));
 
-            this.lightShader.vertexAttribute('aPosition', this.posBuf);
+            this.lightShader.vertexAttribute('aPosition', this.posRectBuf);
 
             var lightPositions = [
                 [-0.5, 0.0],
@@ -385,7 +393,7 @@ module game {
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
             gl.enable(gl.BLEND);
             gl.disable(gl.DEPTH_TEST);
-            this.lightShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            this.lightShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indRectBuf);
             gl.disable(gl.BLEND);
         }
 
