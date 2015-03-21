@@ -1,6 +1,7 @@
 ///<reference path='ui.ts'/>
 ///<reference path='menu.ts'/>
 ///<reference path="drop.ts"/>
+///<reference path="audio.ts"/>
 
 class App {
     private mainMenu: MainMenu;
@@ -32,7 +33,6 @@ class App {
     private AUTH_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Quick play").addOnClick((evt) => {
             this.mainMenu.hide();
-            this.game.start();
         }),
         this.songPicker,
         new MainMenuButton("Logout").addOnClick((evt) => {
@@ -90,8 +90,16 @@ class App {
         )));
     }
 
+    private startGame(songBuffer: AudioBuffer) {
+        this.game.start(songBuffer);
+        this.mainMenu.hide();
+    }
+
     private onFileDropped(buffer: ArrayBuffer) {
         console.log(buffer);
+        audio.context.decodeAudioData(buffer, (songBuffer) => {
+            this.startGame(songBuffer);
+        });
     }
 
     private loadAudio(url: string, callback: (ArrayBuffer) => void) {
