@@ -12,8 +12,11 @@ module webgl {
         handle;
         data;
 
-        constructor(data) {
+        constructor() {
             this.handle = gl.createBuffer();
+        }
+
+        uploadData(data) {
             this.bind();
             this.data = data;
             gl.bufferData(this.getTarget(), data, gl.STATIC_DRAW);
@@ -39,8 +42,8 @@ module webgl {
         elementSize;
         elementGlType;
 
-        constructor(data, itemCount, elementGlType) {
-            super(data);
+        constructor(itemCount, elementGlType) {
+            super();
             this.itemCount = itemCount;
             this.elementGlType = elementGlType;
             if (this.elementGlType == gl.FLOAT) {
@@ -138,9 +141,9 @@ module webgl {
         }
 
         uniformI(name, ...values: number[]) {
-            var loc = gl.uniformLocation(this.handle, name);
-            console.assert(loc >= 0);
+            var loc = gl.getUniformLocation(this.handle, name);
             var n = values.length;
+            this.bind();
             if (n == 1) {
                 gl.uniform1i(loc, values[0]);
             } else if (n == 2) {
@@ -149,13 +152,16 @@ module webgl {
                 gl.uniform3i(loc, values[0], values[1], values[2]);
             } else if (n == 4) {
                 gl.uniform4i(loc, values[0], values[1], values[2], values[3]);
+            } else {
+                console.error('Unsupported values: ' + values);
             }
+            this.unbind();
         }
 
         uniformF(name, ...values: number[]) {
-            var loc = gl.uniformLocation(this.handle, name);
-            console.assert(loc >= 0);
+            var loc = gl.getUniformLocation(this.handle, name);
             var n = values.length;
+            this.bind();
             if (n == 1) {
                 gl.uniform1f(loc, values[0]);
             } else if (n == 2) {
@@ -164,7 +170,25 @@ module webgl {
                 gl.uniform3f(loc, values[0], values[1], values[2]);
             } else if (n == 4) {
                 gl.uniform4f(loc, values[0], values[1], values[2], values[3]);
+            } else {
+                console.error('Unsupported values: ' + values);
             }
+            this.unbind();
+        }
+
+        uniformMatrixF(name, matrix: Float32Array) {
+            var loc = gl.getUniformLocation(this.handle, name);
+            this.bind();
+            if (matrix.length == 2 * 2) {
+                gl.uniformMatrix2fv(loc, false, matrix);
+            } else if (matrix.length == 3 * 3) {
+                gl.uniformMatrix3fv(loc, false, matrix);
+            } else if (matrix.length == 4 * 4) {
+                gl.uniformMatrix4fv(loc, false, matrix);
+            } else {
+                console.error('Unsupported matrix: ' + matrix);
+            }
+            this.unbind();
         }
 
         locateAttribute(name) {
