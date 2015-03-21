@@ -93,6 +93,22 @@ module game {
                 0, 1, 0,
                 0, 1, 0,
                 0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
                 0, 1, 0
             ]);
         }
@@ -124,8 +140,9 @@ module game {
                 vec3.subtract(b, a, ab);
                 var ac = new Float32Array(3);
                 vec3.subtract(c, a, ac);
-                var normal = new Float32Array(3);
+                var normal = vec3.create();
                 vec3.cross(ab, ac, normal);
+                normal = vec3.normalize(normal);
                 normals[3 * i] = normal[0];
                 normals[3 * i + 1] = normal[1];
                 normals[3 * i + 2] = normal[2];
@@ -146,6 +163,13 @@ module game {
             return cameraMtx;
         }
 
+        private setUniformLight(name, x, y, z, intensity, attenuation, ambient) {
+            this.mapShader.uniformF(name + '.position', x, y, z);
+            this.mapShader.uniformF(name + '.intensities', intensity, intensity, intensity);
+            this.mapShader.uniformF(name + '.attenuation', attenuation);
+            this.mapShader.uniformF(name + '.ambientCoefficient', ambient);
+        }
+
         start() {
             this.loop();
         }
@@ -163,15 +187,19 @@ module game {
             this.colBuf.uploadData(colors);
             this.indBuf.uploadData(indicies);
 
+            this.mapShader.vertexAttribute('aNormal', this.normBuf);
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
-            this.mapShader.vertexAttribute('aNormal', this.normBuf);
 
-            var camX = 0, camY = 0, camZ = 3;
+            var time = new Date().getTime();
+            var camX = 2.0*Math.sin(time / 1000.0), camY = 0, camZ = 3;
             var course = Math.PI / 6, pitch = 0, viewAngleVert = 45;
             this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(camX, camY, camZ, viewAngleVert, course, pitch));
             this.mapShader.uniformF('uCameraPosition', camX, camY, camZ);
+            this.setUniformLight('uLight', camX, camY, camZ, 2.0, 0.1, 0.0);
 
+            gl.clear(gl.DEPTH | gl.COLOR);
+            gl.enable(gl.DEPTH_TEST);
             this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
             window.requestAnimationFrame(this.loop.bind(this));
         }
