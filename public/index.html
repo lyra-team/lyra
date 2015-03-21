@@ -12,6 +12,7 @@
         attribute vec3 aPosition;
         attribute vec3 aNormal;
         attribute vec3 aColor;
+        attribute float aHack;
 
         uniform mat4 uCameraMtx;
         uniform float uTime;
@@ -19,11 +20,13 @@
         varying vec3 vColor;
         varying vec3 vPosition;
         varying vec3 vNormal;
+        varying float vHack;
 
         void main(void) {
             vColor = aColor;
             vPosition = aPosition;
             vNormal = aNormal;
+            vHack = aHack;
             gl_Position = uCameraMtx * vec4(aPosition, 1.0);
         }
     </script>
@@ -31,6 +34,9 @@
     <script id="map_fshader" type="x-shader/x-fragment">
         #line 31
         precision mediump float;
+
+        const float borderThreshold = 0.05;
+        const vec3 borderColor = vec3(1.0, 0.0, 0.0);
 
         uniform vec3 uCameraPosition;
 
@@ -44,6 +50,7 @@
         varying vec3 vColor;
         varying vec3 vPosition;
         varying vec3 vNormal;
+        varying float vHack;
 
         vec3 applyLight(Light light, vec3 surfaceColor, vec3 normal, vec3 surfacePos, vec3 surfaceToCamera) {
             vec3 lightDirection = normalize(surfacePos - light.position);
@@ -60,6 +67,10 @@
 
         void main(void) {
             vec3 linearColor = vec3(0);
+            if (vHack < -1.0 + borderThreshold || vHack > 1.0 - borderThreshold) {
+                gl_FragColor = vec4(borderColor, 1.0);
+                return;
+            }
             linearColor += applyLight(uLight, vColor, vNormal, vPosition, uCameraPosition-vPosition);
             gl_FragColor = vec4(linearColor, 1.0);
         }
