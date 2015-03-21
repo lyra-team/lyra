@@ -1,5 +1,6 @@
 ///<reference path='ui.ts'/>
 ///<reference path='menu.ts'/>
+///<reference path='game2.ts'/>
 
 class App {
     private mainMenu: MainMenu;
@@ -86,6 +87,3 @@ class App {
         console.log(url);
     }
 }
-
-var app = new App(4817675);
-app.start();
