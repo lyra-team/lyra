@@ -50,6 +50,7 @@ module game {
 
         private htracker:headtrackr.Tracker;
         private head:vec3;
+        private faceAngle;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -112,6 +113,10 @@ module game {
                 this.onHeadMoved(event.x, event.y, event.z);
             });
 
+            document.addEventListener("facetrackingEvent", (event:any) => {
+                this.onFaceLeaned(event.angle);
+            });
+
             this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
             this.htracker.init(ui.$("inputVideo"),ui.$("inputCanvas"));
             this.htracker.start();
@@ -119,6 +124,11 @@ module game {
 
         private onHeadMoved(x, y, z) {
             this.head = [x, y, z];
+        }
+
+        private onFaceLeaned(angle) {
+            this.faceAngle = angle - Math.PI / 2;
+            console.log(this.faceAngle);
         }
 
         private makeFullscreen() {
@@ -308,8 +318,7 @@ module game {
         }
 
         private getShipTilt() {
-            //todo: replace
-            return this.head[0] * 4 * Math.PI/ 180;
+            return this.faceAngle;
         }
 
         private uploadMapBufs() {
