@@ -2,9 +2,25 @@
 <html>
 <head>
 	<title>Hello world</title>
-	<script src='js/main.js'></script>
+    <link rel="stylesheet" type="text/css" href="css/normalize.css"/>
+    <link rel="stylesheet" type="text/css" href="css/main.css"/>
+    <script src="http://vk.com/js/api/openapi.js" type="text/javascript"></script>
 </head>
 <body>
-	<h1>Hello world</h1>
+	<div class="game">
+        <canvas class="game--canvas"></canvas>
+    </div>
+
+    <div class="mainMenu" id="mainMenu">
+        <div class="mainMenu--titleWrapper">
+            <h1 class="mainMenu--title">Lyra</h1>
+        </div>
+        <ul class="mainMenu--items">
+            <li class="mainMenu--item">
+                <button class="mainMenu--button"></button>
+            </li>
+        </ul>
+    </div>
+    <script src='js/main.js'></script>
 </body>
 </html>
