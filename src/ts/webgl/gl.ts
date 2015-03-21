@@ -1,3 +1,5 @@
+///<reference path="../glMatrix.d.ts"/>
+
 module webgl {
 
     export var gl;
@@ -140,7 +142,7 @@ module webgl {
             this.bound = false;
         }
 
-        uniformI(name, ...values: number[]) {
+        uniformI(name, ...values:number[]) {
             var loc = gl.getUniformLocation(this.handle, name);
             var n = values.length;
             this.bind();
@@ -158,7 +160,7 @@ module webgl {
             this.unbind();
         }
 
-        uniformF(name, ...values: number[]) {
+        uniformF(name, ...values:number[]) {
             var loc = gl.getUniformLocation(this.handle, name);
             var n = values.length;
             this.bind();
@@ -176,7 +178,11 @@ module webgl {
             this.unbind();
         }
 
-        uniformMatrixF(name, matrix: Float32Array) {
+        uniformMatrixF(name, matrix:Float32Array);
+
+        uniformMatrixF(name, matrix:mat4);
+
+        uniformMatrixF(name, matrix) {
             var loc = gl.getUniformLocation(this.handle, name);
             this.bind();
             if (matrix.length == 2 * 2) {
@@ -195,16 +201,16 @@ module webgl {
             return gl.getAttribLocation(this.handle, name);
         }
 
-        vertexAttribute(name, buffer: ArrayBuffer) {
+        vertexAttribute(name, buffer:ArrayBuffer) {
             var loc = this.locateAttribute(name);
             gl.enableVertexAttribArray(loc);
             buffer.bind();
             gl.vertexAttribPointer(loc, buffer.itemCount, buffer.elementGlType, false,
-                buffer.itemCount*buffer.elementSize, 0);
+                buffer.itemCount * buffer.elementSize, 0);
             buffer.unbind();
         }
 
-        draw(width, height, mode, buffer: ElementArrayBuffer) {
+        draw(width, height, mode, buffer:ElementArrayBuffer) {
             this.bind();
             gl.viewport(0, 0, width, height);
             buffer.bind();
