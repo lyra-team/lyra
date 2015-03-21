@@ -3,6 +3,7 @@
 
 class App {
     private mainMenu: MainMenu;
+    private dropOverlay: DropOverlay;
     private audios: VK.Api.Audio[] = [];
 
     private songPicker = new MainMenuSelect("Pick song");
@@ -39,7 +40,9 @@ class App {
             apiId: apiId
         });
 
-        this.mainMenu = new MainMenu(ui.$('mainMenu'));
+        this.mainMenu = new MainMenu(ui.$<HTMLElement>('mainMenu'));
+        this.dropOverlay = new DropOverlay("dropOverlay");
+        this.dropOverlay.setOnFileLoaded(this.onFileDropped.bind(this));
     }
 
     start() {
@@ -79,6 +82,10 @@ class App {
             audio.duration % 60 / 10 | 0,
             audio.duration % 60 % 10
         )));
+    }
+
+    private onFileDropped(url: string) {
+        console.log(url);
     }
 }
 
