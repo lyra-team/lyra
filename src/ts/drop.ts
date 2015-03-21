@@ -4,7 +4,7 @@ var DROP_OVERLAY_VISIBLE = 'dropOverlay-visible';
 
 class DropOverlay {
     private root: HTMLElement;
-    private onFileLoaded: (string) => void;
+    private onFileLoaded: (ArrayBuffer) => void;
 
     constructor(id: string);
     constructor(id: Element);
@@ -17,7 +17,7 @@ class DropOverlay {
         this.root.addEventListener('drop', this.onDrop.bind(this));
     }
 
-    setOnFileLoaded(onFileLoaded: (string) => void) {
+    setOnFileLoaded(onFileLoaded: (ArrayBuffer) => void) {
         this.onFileLoaded = onFileLoaded;
     }
 
@@ -54,6 +54,6 @@ class DropOverlay {
         var file = evt.dataTransfer.files[0],
             reader = new FileReader();
         reader.addEventListener("load", this.onLoad.bind(this));
-        reader.readAsDataURL(file);
+        reader.readAsArrayBuffer(file);
     }
 }

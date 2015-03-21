@@ -8,7 +8,11 @@ class App {
     private audios: VK.Api.Audio[] = [];
     private game: game.Game;
 
-    private songPicker = new MainMenuSelect("Pick song");
+    private songPicker = new MainMenuSelect("Pick song").addOnChange((evt) => {
+        var idx = evt.target.value,
+            audio = this.audios[idx];
+        this.loadAudio(audio.url, (e) => console.log(e));
+    });
 
     private PERMANENT_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Play demo song").addOnClick((evt) => {
@@ -86,7 +90,11 @@ class App {
         )));
     }
 
-    private onFileDropped(url: string) {
-        console.log(url);
+    private onFileDropped(buffer: ArrayBuffer) {
+        console.log(buffer);
+    }
+
+    private loadAudio(url: string, callback: (ArrayBuffer) => void) {
+
     }
 }
