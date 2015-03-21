@@ -1,39 +1,38 @@
 module mapRasterization {
-
-    function generateSectionPoints(pathPoints:Float32Array, stripN, radius, sectorAngle) {
+    export function generateSectionPoints(pathPoints: Float32Array, stripSize: number, radius: number, sectorAngle: number): Float32Array {
+        function pickVec(idx: number) : vec3 {
+            return [
+                pathPoints[idx * 3],
+                pathPoints[idx * 3 + 1],
+                pathPoints[idx * 3 + 2]
+            ];
+        }
         console.assert((pathPoints.length % 3) == 0);
-        var n = pathPoints.length / 3;
-        var points = new Float32Array(n * 3 * (stripN + 1));
-        for (var i = 0; i < n; i++) {
-            var x1 = pathPoints[i * 3], y1 = pathPoints[i * 3 + 1], z1 = pathPoints[i * 3 + 2];
-            var dx, dy, dz;
-            if (i < n - 1) {
-                dx = pathPoints[(i+1) * 3] - x1;
-                dy = pathPoints[(i+1) * 3 + 1] - y1;
-                dz = pathPoints[(i+1) * 3 + 2] - z1;
-            } else {
-                dx = x1 - pathPoints[(i-1) * 3];
-                dy = y1 - pathPoints[(i-1) * 3 + 1];
-                dz = z1 - pathPoints[(i-1) * 3 + 2];
-            }
+        var n = pathPoints.length / 3,
+            points = new Float32Array(n * 3 * (stripSize + 1));
 
-            //for (var j = 0; j <= stripN; j++) {
-            //    var course = Math.atan2(dy, dx);
-            //    var pitch = Math.atan2(dz, Math.sqrt(dx * dx + dy * dy));
-            //    var rotate = matrix.rotationMtx(-course, -pitch, 0);
-            //    var translate = matrix.translationMtx(x1, y1, z1-radius);
-            //    var angle = sectorAngle * (-0.5 + j / (stripN + 1));
-            //    var x = 0, y = Math.sin(angle), z = Math.cos(angle);
-            //    var xyz = translate.translate(x, y, z);
-            //    x = xyz[0], y = xyz[1], z = xyz[2];
-            //    xyz = rotate.translate(x, y, z);
-            //    points[i * 3 * (stripN + 1) + j * 3] = xyz[0];
-            //    points[i * 3 * (stripN + 1) + j * 3 + 1] = xyz[1];
-            //    points[i * 3 * (stripN + 1) + j * 3 + 2] = xyz[2];
-            //}
-        //    * @param course XY
-        //    * @param pitch ZX
-        //    * @param roll YZ
+        for (var i = 0; i < n; i++) {
+            var prev = pickVec(Math.max(i - 1, 0)),
+                cur = pickVec(i),
+                next = pickVec(Math.min(i + 1, n - 1)),
+                normal = vec3.add(vec3.direction(cur, prev, prev), vec3.direction(next, cur, next)),
+                axis = vec3.cross(normal, [1, 0, 0]),
+                rotate = mat4.rotate(mat4.identity(mat4.create()), Math.asin(vec3.length(axis)), axis), // may be -asin
+                transform = mat4.translate(rotate, cur);
+
+            var minAngle = (Math.PI - sectorAngle) / 2,
+                maxAngle = (Math.PI + sectorAngle) / 2;
+
+            for (var j = 0; j <= stripSize; j++) {
+                var angle = minAngle + (maxAngle - minAngle) * j,
+                    vec = mat4.multiplyVec3(transform, [
+                        0,
+                        -Math.cos(angle) * radius,
+                        Math.sin(angle) * radius
+                    ]);
+                for (var k = 0; k < 3; ++k)
+                    points[(i * (stripSize + 1) + j) * 3 + k] = vec[k];
+            }
         }
         return points;
     }
