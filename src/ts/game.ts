@@ -37,6 +37,7 @@ module game {
         private posBuf:webgl.ArrayBuffer;
         private normBuf:webgl.ArrayBuffer;
         private colBuf:webgl.ArrayBuffer;
+        private hackBuf:webgl.ArrayBuffer;
         private indBuf:webgl.ElementArrayBuffer;
 
         private songBuffer;
@@ -70,6 +71,7 @@ module game {
             this.posBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.normBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.colBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.hackBuf = new webgl.ArrayBuffer(1, gl.FLOAT);
             this.indBuf = new webgl.ElementArrayBuffer();
         }
 
@@ -120,6 +122,16 @@ module game {
             if (this.canvas.height !== this.canvas.clientHeight) {
                 this.canvas.height = this.canvas.clientHeight;
             }
+        }
+
+        private generateHacks(n) {
+            var uvs = new Float32Array(n);
+            for (var i = 0; 3 * i < n; i++) {
+                uvs[i * 3] = 1;
+                uvs[i * 3 + 1] = -1;
+                uvs[i * 3 + 2] = 1;
+            }
+            return uvs;
         }
 
         private createPoints(points, n, splinesN) {
@@ -297,18 +309,22 @@ module game {
             var keyPointCount = keyPoints.length / 3,
                 sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
-                colors = this.createColors(points.length / 3, 0, 1, 0),
-                indicies = this.createIndiciesLines(keyPointCount, STRIP_COUNT),
-                normals = this.generateNormals(points, indicies);
+                colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
+                indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
+                normals = this.generateNormals(points, indicies),
+                hacks = this.generateHacks(points.length / 3);
+
 
             this.posBuf.uploadData(points);
             this.normBuf.uploadData(normals);
             this.colBuf.uploadData(colors);
+            this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
 
             this.mapShader.vertexAttribute('aNormal', this.normBuf);
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
+            this.mapShader.vertexAttribute('aHack', this.hackBuf);
 
             function getAbsPosition(relPosition) {
                 var prevPointIdx = Math.floor(relPosition),
@@ -334,7 +350,7 @@ module game {
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
         }
 
         private renderLights() {
