@@ -5,6 +5,7 @@
 
 module game {
     var C_GAME_CANVAS = "game--canvas";
+    var LIGHTS_COUNT = 2;
     var gl;
 
     export class Game {
@@ -13,6 +14,7 @@ module game {
         private glContext:webgl.GLContext;
 
         private mapShader:webgl.Shader;
+        private lightShader:webgl.Shader;
 
         private posBuf:webgl.ArrayBuffer;
         private normBuf:webgl.ArrayBuffer;
@@ -40,6 +42,9 @@ module game {
             var vert = (<HTMLScriptElement> document.getElementById('map_vshader')).text;
             var frag = (<HTMLScriptElement> document.getElementById('map_fshader')).text;
             this.mapShader = new webgl.Shader(vert, frag);
+            vert = (<HTMLScriptElement> document.getElementById('lights_vshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString());
+            frag = (<HTMLScriptElement> document.getElementById('lights_fshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString());
+            this.lightShader = new webgl.Shader(vert, frag);
 
             this.posBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.normBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
@@ -193,7 +198,7 @@ module game {
             return cameraMtx;
         }
 
-        private setUniformLight(name, x, y, z, intensity, attenuation, ambient) {
+        private setUniformCameraLight(name, x, y, z, intensity, attenuation, ambient) {
             this.mapShader.uniformF(name + '.position', x, y, z);
             this.mapShader.uniformF(name + '.intensities', intensity, intensity, intensity);
             this.mapShader.uniformF(name + '.attenuation', attenuation);
@@ -205,9 +210,16 @@ module game {
             this.loop();
         }
 
-        private loop() {
-            this.makeFullPage();
+        getTime() {
+            var curTime = new Date().getTime();
+            if (this.paused) {
+                curTime = this.pausedTime;
+            }
+            var time = (curTime - this.startTime) / 100.0;
+            return time;
+        }
 
+        renderMap() {
             var keypoints = new Float32Array([
                 5, 0, 1.1,
                 6, 0, 1.5,
@@ -233,20 +245,58 @@ module game {
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
 
-            var curTime = new Date().getTime();
-            if (this.paused) {
-                curTime = this.pausedTime;
-            }
-            var time = (curTime - this.startTime) / 100.0;
-            var camX = -10 + time, camY = 0, camZ = 5;
+            var camX = -10 + this.getTime(), camY = 0, camZ = 5;
             var viewAngleVert = 45;
             this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(camX, camY, camZ, viewAngleVert, Math.PI/2, Math.PI/8));
             this.mapShader.uniformF('uCameraPosition', camX, camY, camZ);
-            this.setUniformLight('uLight', camX, camY, camZ, 2.0, 0.1, 0.5);
+            this.setUniformCameraLight('uLight', camX, camY, camZ, 2.0, 0.1, 0.5);
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
             this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
+        }
+
+        private renderLights() {
+            this.lightShader.vertexAttribute('aPosition', this.posBuf);
+
+            var screenCorners = new Float32Array([
+                -1, -1, 0,
+                -1, 1, 0,
+                1, 1, 0,
+                1, -1, 0
+            ]);
+            this.posBuf.uploadData(screenCorners);
+            this.indBuf.uploadData(new Uint16Array([0, 1, 2, 0, 2, 3]));
+
+            this.lightShader.vertexAttribute('aPosition', this.posBuf);
+
+            var lightPositions = [
+                [-0.5, 0.0],
+                [0.5, 0.0]
+            ];
+            var lightColors = [
+                [0, 1, 0],
+                [1, 0, 0]
+            ];
+            for (var i = 0; i < LIGHTS_COUNT; i++) {
+                this.lightShader.uniformF('lightPosition[' + i.toString() + ']', lightPositions[i][0], lightPositions[i][1]);
+                this.lightShader.uniformF('lightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
+            }
+            this.lightShader.uniformF('uRatio', this.canvas.height/this.canvas.width);
+            this.lightShader.uniformF('uTime', this.getTime());
+
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.enable(gl.BLEND);
+            gl.disable(gl.DEPTH_TEST);
+            this.lightShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            gl.disable(gl.BLEND);
+        }
+
+        private loop() {
+            this.makeFullPage();
+
+            this.renderMap();
+            this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));
         }
     }
