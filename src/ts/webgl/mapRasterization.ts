@@ -1,3 +1,5 @@
+///<reference path='../glMatrix.d.ts'/>
+
 module mapRasterization {
 
     function generateSectionPoints(pathPoints:Float32Array, stripN, radius, sectorAngle) {
