@@ -244,7 +244,7 @@ module game {
         }
 
         renderMap() {
-            var keypoints = new Float32Array([
+            var keyPoints = new Float32Array([
                 5, 0, 1.1,
                 6, 0, 1.5,
                 7, 0, 1.1,
@@ -288,7 +288,7 @@ module game {
             var viewAngleVert = 45;
             this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt));
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
-            this.setUniformLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
+            this.setUniformCameraLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
 
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
@@ -322,7 +322,7 @@ module game {
                 this.lightShader.uniformF('lightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
             }
             this.lightShader.uniformF('uRatio', this.canvas.height/this.canvas.width);
-            this.lightShader.uniformF('uTime', this.getTime());
+            this.lightShader.uniformF('uTime', this.getAbsoluteTime());
 
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
             gl.enable(gl.BLEND);
@@ -332,7 +332,7 @@ module game {
         }
 
         private loop() {
-            this.makeFullPage();
+            this.makeFullscreen();
 
             this.renderMap();
             this.renderLights();
