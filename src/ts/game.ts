@@ -12,8 +12,19 @@ module game {
     var TUBE_RADIUS = 5;
     var SECTOR_ANGLE = Math.PI / 2;
     var CAM_HEIGHT = 5;
-    var CAM_VIEW_DISTANCE = 2;
+    var CAM_VIEW_DISTANCE = 5;
     var CAM_BACK_OFFSET = 1;
+
+    var keyPoints = new Float32Array(Array(3000).join(",").split(",").map((val, idx) => {
+        switch (idx % 3) {
+            case 0:
+                return idx + Math.random() * 2;
+            case 1:
+                return Math.sin(idx / 10);
+            case 2:
+                return 1 + (Math.random() - 0.5) / 2;
+        }
+    }));
 
     export class Game {
         private root:HTMLElement;
@@ -283,15 +294,7 @@ module game {
         }
 
         renderMap() {
-            var keyPoints = new Float32Array([
-                5, 0, 1.1,
-                6, 0, 1.5,
-                7, 0, 1.1,
-                8, 0.1, 1.1,
-                9, 0.0, 1.1,
-                10, 0.0, 1.1
-            ]),
-                keyPointCount = keyPoints.length / 3,
+            var keyPointCount = keyPoints.length / 3,
                 sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0, 1, 0),
@@ -320,7 +323,7 @@ module game {
                 absPosition = getAbsPosition(relPosition),
                 absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointCount));
 
-            var offPosition = vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET),
+            var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
                 eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
                 lookAt = vec3.add([0, 0, TUBE_RADIUS], absTarget);
 
