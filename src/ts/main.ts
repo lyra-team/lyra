@@ -8,16 +8,14 @@ class App {
 
     private songPicker = new MainMenuSelect("Pick song");
 
-    private PERMANENT_MENU_ITEMS = [
+    private PERMANENT_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Play demo song").addOnClick((evt) => {
 
         }),
-        new MainMenuButton("Upload song").addOnClick((evt) => {
-
-        })
+        new MainMenuLabel("Or drag and drop mp3 file here")
     ];
 
-    private ANON_MENU_ITEMS = [
+    private ANON_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Login with vk.com").addOnClick((evt) => {
             VK.Auth.login((response) => {
                 this.loggedIn(response.session);
@@ -25,7 +23,7 @@ class App {
         })
     ];
 
-    private AUTH_MENU_ITEMS = [
+    private AUTH_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Quick play").addOnClick((evt) => {
 
         }),

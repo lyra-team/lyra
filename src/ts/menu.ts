@@ -5,7 +5,8 @@ var C_MAIN_MENU_TITLE = 'mainMenu--title',
     C_MAIN_MENU_VISIBLE = 'mainMenu-visible',
     C_MAIN_MENU_BUTTON = 'mainMenu--button',
     C_MAIN_MENU_ITEM = "mainMenu--item",
-    C_MAIN_MENU_SELECT = "mainMenu--select";
+    C_MAIN_MENU_SELECT = "mainMenu--select",
+    C_MAIN_MENU_LABEL = 'mainMenu--label';
 
 interface MainMenuItem {
     getElement(): Element;
@@ -77,6 +78,20 @@ class MainMenuSelect implements MainMenuItem {
     addOnChange(onChange) {
         this.root.addEventListener("change", onChange);
         return this;
+    }
+
+    getElement():Element {
+        return this.root;
+    }
+}
+
+class MainMenuLabel implements MainMenuItem {
+    private root: HTMLElement;
+
+    constructor(caption: string) {
+        this.root = document.createElement("div");
+        this.root.className = C_MAIN_MENU_LABEL;
+        this.root.innerHTML = caption;
     }
 
     getElement():Element {
