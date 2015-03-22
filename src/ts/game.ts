@@ -435,7 +435,7 @@ module game {
 
             var keyPointsCount = this.keyPoints.length / 3,
                 relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointsCount,
+                relPosition = relTime * keyPointsCount;
             var relTime = this.getRelativeTime(),
                 relPosition = relTime * this.keyPoints.length / 3,
                 absPosition = getAbsPosition(relPosition),
