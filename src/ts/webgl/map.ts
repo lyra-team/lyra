@@ -9,12 +9,12 @@ module map {
                 cur = util.pickVec3(keyPoints, i),
                 next = util.pickVec3(keyPoints, Math.min(i + 1, n - 1)),
                 normal = vec3.normalize(vec3.add(vec3.direction(prev, cur, prev), vec3.direction(cur, next, next))),
-                axis = vec3.cross(normal, [1, 0, 0]),
-                transform = mat4.identity([]),
-                rotateAngle = Math.asin(vec3.length(axis));
+                axisZ = vec3.cross([normal[0], normal[1], 0], [1, 0, 0]),
+                axisY = vec3.cross([normal[0], normal[1], 0], normal),
+                transform = mat4.identity([]);
             mat4.translate(transform, cur);
-            if (rotateAngle > 1e-4)
-                mat4.rotate(transform, rotateAngle, axis);
+            mat4.rotate(transform, Math.asin(vec3.length(axisY)), axisY);
+            mat4.rotate(transform, Math.asin(vec3.length(axisZ)), axisZ);
 
             var minAngle = (Math.PI - sectorAngle) / 2,
                 maxAngle = (Math.PI + sectorAngle) / 2;

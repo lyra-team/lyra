@@ -19,7 +19,9 @@ class App {
         new MainMenuButton("Play demo song").addOnClick((evt) => {
 
         }),
-        new MainMenuLabel("Or drag and drop mp3 file here")
+        new MainMenuLabel("Or drag and drop mp3 file here"),
+        new MainMenuLabel("Press A key for anaglyph"),
+        new MainMenuLabel("Press S key for stereo  ")
     ];
 
     private ANON_MENU_ITEMS: MainMenuItem[] = [
