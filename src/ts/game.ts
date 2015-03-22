@@ -49,8 +49,8 @@ module game {
         private freqBins;
 
         private htracker:headtrackr.Tracker;
-        private head:vec3;
-        private faceAngle;
+        private head:vec3 = [0, 0, 0];
+        private faceAngle = 0;
 
         private keyPoints;
 
@@ -138,7 +138,7 @@ module game {
             });
 
             this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
-            this.htracker.init(ui.$("inputVideo"),ui.$("inputCanvas"));
+            this.htracker.init(ui.$("inputVideo"), ui.$("inputCanvas"));
             this.htracker.start();
         }
 
@@ -147,7 +147,9 @@ module game {
         }
 
         private onFaceLeaned(angle) {
-            this.faceAngle = angle - Math.PI / 2;
+            var alpha = 0.1;
+            angle -= Math.PI / 2;
+            this.faceAngle = angle * alpha + this.faceAngle * (1 - alpha);
         }
 
         private makeFullscreen() {
@@ -311,13 +313,14 @@ module game {
 
             var channelData = buffer.getChannelData(0);
             var frames_step = STEP * buffer.sampleRate | 0;
-            
+
             var fft_buffer = new Float32Array(W_SIZE * 2);
-            
+
             this.keyPoints = [0, 0, 0];
             var last_point : vec3 = [0, 0, 0];
             //var all_low = [], all_high = []
             var low = 0, high = 0;
+
             for (var i = frames_step, time = 0; i + W_SIZE < channelData.length; i += frames_step, time++) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
@@ -338,7 +341,7 @@ module game {
 
                 low /= 150;
                 high /= 70;
-                
+
                 console.log(low + " " + high);
                 var delta : vec3 = [1, Math.cos(T * (time + high)), T * T * T * time + high - 0.5];
                 delta = vec3.scale(delta, (STANDART_V + low));
@@ -355,7 +358,7 @@ module game {
         start(songBuffer: AudioBuffer) {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
-            
+
             this.preprocessSong(songBuffer);
 
             this.song.buffer = songBuffer;
@@ -403,10 +406,10 @@ module game {
         }
 
         private getShipTilt() {
-            return 0;
-            //var sign = this.faceAngle < 0 ? -1 : 1,
-            //    abs = Math.abs(this.faceAngle);
-            //return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
+            // return 0;
+            var sign = this.faceAngle < 0 ? -1 : 1,
+               abs = Math.abs(this.faceAngle);
+            return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
         }
 
         private uploadMapBufs() {
