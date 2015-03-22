@@ -72,7 +72,7 @@ module rectangle {
         return sum;
     }
 
-    function isMaximum (prev, current, thres) {
+    function isMaximum (prev, current) {
         if (prev.length == 0)
             return false;
 
@@ -81,9 +81,9 @@ module rectangle {
             if (complexLength(prev.real[i], prev.imag[i]) < complexLength(current.real[i], current.imag[i]))
                 cnt++;
 
-        console.log(cnt + " " + current.length + " " + current.length * thresh);
+        console.log(cnt + " " + current.length + " " + current.length * MAX_THRESH);
 
-        return cnt >= current.length * thresh;
+        return cnt >= current.length * MAX_THRESH;
     }
 
     function precalculate ()

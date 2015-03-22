@@ -337,7 +337,7 @@ module game {
 
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
-            var STEP = 0.05;
+            var STEP = 0.1  ;
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
             var STANDARD_LOW = 5;
@@ -388,7 +388,7 @@ module game {
             this.blockPositions = []
             magnitudes.map(function(value, i, n) {
                 if (value == 1) {
-                    blockPositions += [i, Math.floor(Math.random() * 5)]; 
+                    this.blockPositions.push([i, Math.floor(Math.random() * 5)]); 
                 }
             })
 
