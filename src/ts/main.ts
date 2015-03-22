@@ -12,12 +12,12 @@ class App {
     private songPicker = new MainMenuSelect("Pick song").addOnChange((evt) => {
         var idx = evt.target.value,
             audio = this.audios[idx];
-        this.loadAudio(audio.url, (e) => console.log(e));
+        this.loadAudioAndStart(audio.url);
     });
 
     private PERMANENT_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Play demo song").addOnClick((evt) => {
-
+            this.loadAudioAndStart("/demos/webgl/metallica.mp3");
         }),
         new MainMenuLabel("Or drag and drop mp3 file here"),
         new MainMenuLabel("Press A key for anaglyph"),
@@ -99,14 +99,24 @@ class App {
         this.mainMenu.hide();
     }
 
-    private onFileDropped(buffer: ArrayBuffer) {
-        console.log(buffer);
+    private decodeAndStart(buffer: ArrayBuffer) {
         audio.context.decodeAudioData(buffer, (songBuffer) => {
             this.startGame(songBuffer);
         });
     }
 
-    private loadAudio(url: string, callback: (ArrayBuffer) => void) {
+    private onFileDropped(buffer: ArrayBuffer) {
+        console.log(buffer);
+        this.decodeAndStart(buffer);
+    }
 
+    private loadAudioAndStart(url: string) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = (response: any) => {
+            this.decodeAndStart(xhr.response);
+        };
+        xhr.send();
     }
 }
