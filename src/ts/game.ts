@@ -338,6 +338,7 @@ module game {
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
             var STEP = 0.1  ;
+            var STEP_CORRECTION = 20 * STEP; 
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
             var STANDARD_LOW = 5;
@@ -408,15 +409,13 @@ module game {
                 current_high = ALPHA * current_high + (1 - ALPHA) * low;
 
                 var delta : vec3 = [1, Y * Math.cos(T * (time + high)), Z * (-2 + high)];
-                delta = vec3.scale(delta, (STANDART_V + low));
+                delta = vec3.scale(delta, (STANDART_V + low) * STEP_CORRECTION);
                 last_point = vec3.add(last_point, delta);
 
                 this.keyPoints.push(last_point[0])
                 this.keyPoints.push(last_point[1])
                 this.keyPoints.push(last_point[2])
             }
-
-            console.log("!!!! " + this.keyPoints.length);
         }
 
         start(songBuffer: AudioBuffer) {
