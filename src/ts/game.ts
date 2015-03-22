@@ -14,7 +14,8 @@ module game {
     var TUBE_RADIUS = 10;
     var SECTOR_ANGLE = Math.PI / 2;
     var CAM_HEIGHT = 5;
-    var CAM_VIEW_DISTANCE = 10;
+    var CAM_VIEW_DISTANCE = 20;
+    var CAM_TARGET_HEIGHT = 3;
     var CAM_BACK_OFFSET = 1;
     var MAX_FACE_TILT = 0.35;
     var MAX_HEAD_SHIFT = 15;
@@ -48,12 +49,18 @@ module game {
         private mapShader:webgl.Shader;
         private lightShader:webgl.Shader;
         private backgroundShader:webgl.Shader;
+        private planeShader: webgl.Shader;
 
         private posBuf:webgl.ArrayBuffer;
         private normBuf:webgl.ArrayBuffer;
         private colBuf:webgl.ArrayBuffer;
         private hackBuf:webgl.ArrayBuffer;
         private indBuf:webgl.ElementArrayBuffer;
+
+        private planePosBuf: webgl.ArrayBuffer;
+        private planeNormBuf: webgl.ArrayBuffer;
+        private planeColorBuf: webgl.ArrayBuffer;
+        private planeIndBuf: webgl.ElementArrayBuffer;
 
         private posRectBuf:webgl.ArrayBuffer;
         private indRectBuf:webgl.ElementArrayBuffer;
@@ -95,9 +102,9 @@ module game {
             this.glContext.activate();
             gl = webgl.gl;
 
-            var vert = (<HTMLScriptElement> document.getElementById('map_vshader')).text
+            var vert = (<HTMLScriptElement> ui.$('map_vshader')).text
                 .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
-            var frag = (<HTMLScriptElement> document.getElementById('map_fshader')).text
+            var frag = (<HTMLScriptElement> ui.$('map_fshader')).text
                 .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.mapShader = new webgl.Shader(vert, frag);
 
@@ -110,6 +117,10 @@ module game {
             vert = (<HTMLScriptElement> document.getElementById('background_vshader')).text.split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             frag = (<HTMLScriptElement> document.getElementById('background_fshader')).text.split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.backgroundShader = new webgl.Shader(vert, frag);
+            
+            vert = (<HTMLScriptElement> ui.$('plane_vshader')).text;
+            frag = (<HTMLScriptElement> ui.$('plane_fshader')).text;
+            this.planeShader = new webgl.Shader(vert, frag);
 
             this.posBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.normBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
@@ -119,6 +130,11 @@ module game {
 
             this.posRectBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.indRectBuf = new webgl.ElementArrayBuffer();
+
+            this.planePosBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.planeColorBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.planeNormBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.planeIndBuf = new webgl.ElementArrayBuffer();
         }
 
         private initInputEvents() {
@@ -338,7 +354,7 @@ module game {
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
             var STEP = 0.1  ;
-            var STEP_CORRECTION = 20 * STEP; 
+            var STEP_CORRECTION = 20 * STEP;
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
             var STANDARD_LOW = 5;
@@ -524,30 +540,74 @@ module game {
             this.colBuf.uploadData(colors);
             this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
+
+            var planePos = new Float32Array([
+                -1, 1, 0,
+                1, 0, 0,
+                -0.8, 0, 1,
+                -1, -1, 0
+            ]);
+            this.planePosBuf.uploadData(planePos);
+            this.planeColorBuf.uploadData(new Float32Array([
+                1, 1, 1,
+                1, 1, 1,
+                1, 1, 1,
+                1, 1, 1
+            ]));
+            var planeInd = new Uint16Array([
+                0, 1, 2,
+                3, 2, 1
+            ]);
+            this.planeIndBuf.uploadData(planeInd);
+            this.planeNormBuf.uploadData(this.generateNormals(planePos, planeInd));
         }
 
         private initCamera() {
-            var getAbsPosition = (relPosition) => {
+            var keyPointsCount = this.keyPoints.length / 3,
+                relTime = this.getRelativeTime(),
+                relPosition = relTime * keyPointsCount;
+
+            var getAbsPosition = (relPosition): any => {
+                relPosition = Math.max(0, Math.min(relPosition, keyPointsCount));
                 var prevPointIdx = Math.floor(relPosition),
-                    nextPointIdx = Math.ceil(relPosition),
+                    nextPointIdx = Math.min(prevPointIdx + 1, keyPointsCount),
                     prevPoint = util.pickVec3(this.keyPoints, prevPointIdx),
                     nextPoint = util.pickVec3(this.keyPoints, nextPointIdx);
                 return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
             };
-            var keyPointsCount = this.keyPoints.length / 3,
-                relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointsCount;
+
+            var getAbsPositionAndUp = (relPosition): any => {
+                var past = getAbsPosition(relPosition - 0.5),
+                    present = getAbsPosition(relPosition),
+                    future = getAbsPosition(relPosition + 0.5),
+                    guide = vec3.direction(past, future, []),
+                    up = vec3.normalize(vec3.cross(guide, vec3.cross([0, 0, 1], guide), []));
+                return {
+                    pos: present,
+                    up: up,
+                    guide: guide
+                };
+            };
+
             var relTime = this.getRelativeTime(),
-                relPosition = relTime * this.keyPoints.length / 3,
-                absPosition = getAbsPosition(relPosition),
-                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointsCount)),
-                look = vec3.direction(absPosition, absTarget, []),
-                up = vec3.cross(look, vec3.cross([0, 0, 1], look), []),
-                tilt = mat4.rotate(mat4.identity([]), this.getShipTilt(), look),
-                offPosition = vec3.subtract(absPosition, vec3.scale(look, CAM_BACK_OFFSET));
-            this.eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS + CAM_HEIGHT, [])), offPosition);
-            this.lookAt = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS, [])), absTarget);
-            this.absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, this.keyPoints.length / 3));
+                relPosition = relTime * keyPointsCount,
+                absPosition = getAbsPositionAndUp(relPosition);
+            var l = relPosition, r = keyPointsCount;
+            while (r - l > 1e-6) {
+                var m = (r + l) / 2;
+                var dist = vec3.length(vec3.subtract(getAbsPosition(m), absPosition.pos));
+                if (dist > CAM_VIEW_DISTANCE)
+                    r = m;
+                else
+                    l = m;
+            }
+            var absTarget = getAbsPositionAndUp((l + r) / 2);
+
+            var look = vec3.direction(absPosition.pos, absTarget.pos, []),
+                tilt = mat4.rotate(mat4.identity([]), this.getShipTilt(), absPosition.guide);
+            //offPosition = vec3.subtract(absPosition.pos, vec3.scale(look, CAM_BACK_OFFSET)),
+            this.eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(absPosition.up, TUBE_RADIUS + CAM_HEIGHT, [])), absPosition.pos);
+            this.lookAt = vec3.add(vec3.scale(absTarget.up, TUBE_RADIUS + CAM_TARGET_HEIGHT, []), absTarget.pos);
         }
 
         private renderBackground() {
@@ -621,6 +681,21 @@ module game {
                 gl.clear(gl.DEPTH | gl.COLOR);
                 this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
             }
+            //gl.enable(gl.DEPTH_TEST);
+            //gl.clear(gl.DEPTH | gl.COLOR);
+            //this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            //
+            //this.planeShader.bind();
+            //
+            //this.planeShader.vertexAttribute('aPosition', this.planePosBuf);
+            //this.planeShader.vertexAttribute('aColor', this.planeColorBuf);
+            //this.planeShader.vertexAttribute('aNormal', this.planeNormBuf);
+            //
+            //this.planeShader.uniformMatrixF("uCameraMtx", cameraMtx);
+            //this.planeShader.uniformF("uCameraPosition", eye[0], eye[1], eye[2]);
+            //this.planeShader.uniformMatrixF("uModelMtx", mat4.translate(mat4.create(), planePos));
+            //
+            //this.planeShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.planeIndBuf);
         }
 
         private renderLights() {
