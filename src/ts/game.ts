@@ -18,8 +18,8 @@ module game {
     var CAM_BACK_OFFSET = 1;
     var MAX_FACE_TILT = 0.4;
     var MAX_HEAD_SHIFT = 17;
-    var ANGLE_ALPHA = 0.1;
-    var X_ALPHA = 0.1;
+    var ANGLE_ALPHA = 0.2;
+    var X_ALPHA = 0.2;
 
     function complexNorm(real, imag) {
         return Math.sqrt(real * real + imag * imag);
