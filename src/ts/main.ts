@@ -17,7 +17,7 @@ class App {
 
     private PERMANENT_MENU_ITEMS: MainMenuItem[] = [
         new MainMenuButton("Play demo song").addOnClick((evt) => {
-            this.loadAudioAndStart("/demos/webgl/metallica.mp3");
+            this.loadAudioAndStart("demos/webgl/metallica.mp3");
         }),
         new MainMenuLabel("Or drag and drop mp3 file here"),
         new MainMenuLabel("Press A key for anaglyph"),
@@ -25,11 +25,11 @@ class App {
     ];
 
     private ANON_MENU_ITEMS: MainMenuItem[] = [
-        new MainMenuButton("Login with vk.com").addOnClick((evt) => {
-            VK.Auth.login((response) => {
-                this.loggedIn(response.session);
-            }, VK.Auth.Permission.AUDIO);
-        })
+        //new MainMenuButton("Login with vk.com").addOnClick((evt) => {
+        //    VK.Auth.login((response) => {
+        //        this.loggedIn(response.session);
+        //    }, VK.Auth.Permission.AUDIO);
+        //})
     ];
 
     private AUTH_MENU_ITEMS: MainMenuItem[] = [
