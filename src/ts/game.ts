@@ -57,6 +57,8 @@ module game {
         private head:vec3;
         private faceAngle;
 
+        private anaglyph = true;
+
         constructor(rootId) {
             this.root = ui.$(rootId);
             this.canvas = ui.$$<HTMLCanvasElement>("." + C_GAME_CANVAS, this.root);
@@ -272,9 +274,13 @@ module game {
             return normals;
         }
 
-        private createCameraMtx(eye, angleOfView, lookAt) {
+        private createCameraMtx(eye, angleOfView, lookAt, eyeShift) {
             var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 300.0),
                 vMatrix = mat4.lookAt(eye, lookAt, [0, 0, 1]);
+            var shift = mat4.create();
+            mat4.identity(shift);
+            shift = mat4.translate(shift, [eyeShift, 0, 0]);
+            vMatrix = mat4.multiply(shift, vMatrix);
             return mat4.multiply(pMatrix, vMatrix);
         }
 
@@ -376,7 +382,6 @@ module game {
                 lookAt = vec3.add([0, 0, TUBE_RADIUS], absTarget);
 
             var viewAngleVert = 45;
-            this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt));
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
             this.setUniformCameraLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
 
@@ -384,9 +389,24 @@ module game {
                 this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
             }
 
-            gl.enable(gl.DEPTH_TEST);
-            gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            if (this.anaglyph) {
+                var eyeShift = 0.1;
+                gl.enable(gl.DEPTH_TEST);
+                gl.clear(gl.DEPTH | gl.COLOR);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, eyeShift));
+                gl.colorMask(1, 0, 0, 0);
+                this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, -eyeShift));
+                gl.colorMask(0, 1, 1, 1);
+                gl.clear(gl.DEPTH_BUFFER_BIT);
+                this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+                gl.colorMask(1, 1, 1, 1);
+            } else {
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, 0));
+                gl.enable(gl.DEPTH_TEST);
+                gl.clear(gl.DEPTH | gl.COLOR);
+                this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            }
         }
 
         private renderLights() {
