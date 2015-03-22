@@ -43,9 +43,9 @@ class App {
     ];
 
     constructor(apiId: number) {
-        VK.init({
-            apiId: apiId
-        });
+        //VK.init({
+        //    apiId: apiId
+        //});
 
         this.mainMenu = new MainMenu(ui.$<HTMLElement>('mainMenu'));
         this.dropOverlay = new DropOverlay("dropOverlay");
@@ -54,15 +54,17 @@ class App {
     }
 
     start() {
-        VK.Auth.getLoginStatus((obj) => {
-            console.log(obj);
-            if (obj.session !== null) {
-                this.loggedIn(obj.session);
-            } else {
-                this.loggedOut();
-            }
-            this.mainMenu.show();
-        });
+        //VK.Auth.getLoginStatus((obj) => {
+        //    console.log(obj);
+        //    if (obj.session !== null) {
+        //        this.loggedIn(obj.session);
+        //    } else {
+        //        this.loggedOut();
+        //    }
+        //    this.mainMenu.show();
+        //});
+        this.loggedOut();
+        this.mainMenu.show();
     }
 
     requestAudios() {

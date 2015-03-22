@@ -10,6 +10,8 @@ declare class mat4 {
     static lookAt(eye: vec3, center: vec3, up: vec3, dest?: mat4): mat4;
     static multiply(mat1: mat4, mat2: mat4, dest?: mat4): mat4;
     static multiplyVec3(mat: mat4, vec: vec3, dest?: vec3): vec3;
+    static scale(mat: mat4, vec: vec3, dest?: mat4): mat4;
+    static rotateZ(mat: mat4, angle: number, dest?: mat4): mat4;
 }
 
 declare class vec3 {
