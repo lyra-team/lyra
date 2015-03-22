@@ -533,6 +533,7 @@ module game {
                 this.songLastOffset = 0;
                 this.timeLastOffset = audio.context.currentTime;
                 this.uploadMapBufs();
+                this.uploadBlockBufs();
                 this.loop();
             }, 100);
         }
@@ -649,7 +650,6 @@ module game {
                 colors = this.createColors(points.length / 3, 0.3, 0.5, 0.7),
                 indicies = this.createBlockIndicies(blockPoints.length / 3),
                 normals = this.generateNormals(points, indicies);
-            console.info(blockPoints);//TODO: remove
 
             this.blockPosBuf.uploadData(points);
             this.blockColBuf.uploadData(colors);
