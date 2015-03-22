@@ -13,19 +13,13 @@ module game {
     var TUBE_RADIUS = 5;
     var SECTOR_ANGLE = Math.PI / 2;
     var CAM_HEIGHT = 5;
-    var CAM_VIEW_DISTANCE = 5;
+    var CAM_VIEW_DISTANCE = 10;
     var CAM_BACK_OFFSET = 1;
+    var MAX_FACE_TILT = 0.4;
 
-    var keyPoints = new Float32Array(Array(3000).join(",").split(",").map((val, idx) => {
-        switch (idx % 3) {
-            case 0:
-                return idx + Math.random() * 2;
-            case 1:
-                return Math.sin(idx / 10);
-            case 2:
-                return 1 + (Math.random() - 0.5) / 2;
-        }
-    }));
+    function complexNorm(real, imag) {
+        return Math.sqrt(real * real + imag * imag);
+    }
 
     export class Game {
         private root:HTMLElement;
@@ -56,6 +50,8 @@ module game {
         private htracker:headtrackr.Tracker;
         private head:vec3;
         private faceAngle;
+
+        private keyPoints;
 
         private anaglyph = true;
 
@@ -112,9 +108,6 @@ module game {
             };
 
             document.addEventListener("headtrackrStatus", (event:any) => {
-                // if (event.status in supportMessages) {
-                    // var messagep = document.getElementById('gUMMessage');
-                    // messagep.innerHTML = supportMessages[event.status];
                 if (event.status in statusMessages) {
                     console.log(statusMessages[event.status]);
                 }
@@ -139,7 +132,6 @@ module game {
 
         private onFaceLeaned(angle) {
             this.faceAngle = angle - Math.PI / 2;
-            console.log(this.faceAngle);
         }
 
         private makeFullscreen() {
@@ -291,9 +283,59 @@ module game {
             this.mapShader.uniformF(name + '.ambientCoefficient', ambient);
         }
 
+        private preprocessSong (buffer) {
+            var W_SIZE = 1024 * 4;
+            var STEP = 0.1;
+            var MAX_THRESH = 0.7;
+            var STANDART_V = 1;
+            var T = 0.1;
+
+            var channelData = buffer.getChannelData(0);
+            var frames_step = STEP * buffer.sampleRate | 0;
+            
+            var fft_buffer = new Float32Array(W_SIZE * 2);
+            
+            this.keyPoints = [0, 0, 0];
+            var last_point : vec3 = [0, 0, 0];
+            
+            for (var i = frames_step, time = 0; i + W_SIZE < channelData.length; i += frames_step, time++) {
+                for (var j = -W_SIZE; j < W_SIZE; j++)
+                    fft_buffer[W_SIZE + j] = channelData[j + i];
+                var complex = new complex_array.ComplexArray(fft_buffer);
+                complex.FFT();
+
+                var low = 0, high = 0;
+                complex.map(function(value, i, n) {
+                    if (i * 5 < n || i * 5 > 4 * n) {
+                        low += complexNorm(value.real, value.imag);
+                    }
+                    else {
+                        high += complexNorm(value.real, value.imag);
+                    }
+                });
+
+                low /= 150;
+                high /= 70;
+                
+                console.log(low + " " + high);
+                var delta : vec3 = [1, Math.cos(T * (time + high)), T * T * T * time + high - 0.5];
+                delta = vec3.scale(delta, (STANDART_V + low));
+                last_point = vec3.add(last_point, delta);
+
+                this.keyPoints.push(last_point[0])
+                this.keyPoints.push(last_point[1])
+                this.keyPoints.push(last_point[2])
+            }
+
+            console.log("!!!! " + this.keyPoints.length);
+        }
+
         start(songBuffer: AudioBuffer) {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
+            
+            this.preprocessSong(songBuffer);
+
             this.song.buffer = songBuffer;
             this.analyser = audio.context.createAnalyser();
             this.analyser.fftSize = 64;
@@ -339,12 +381,15 @@ module game {
         }
 
         private getShipTilt() {
-            return this.faceAngle;
+            return 0;
+            //var sign = this.faceAngle < 0 ? -1 : 1,
+            //    abs = Math.abs(this.faceAngle);
+            //return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
         }
 
         private uploadMapBufs() {
-            var keyPointCount = keyPoints.length / 3,
-                sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
+            var keyPointCount = this.keyPoints.length / 3,
+                sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
@@ -364,22 +409,25 @@ module game {
             this.mapShader.vertexAttribute('aColor', this.colBuf);
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
 
-            function getAbsPosition(relPosition) {
+            var getAbsPosition = (relPosition) => {
                 var prevPointIdx = Math.floor(relPosition),
                     nextPointIdx = Math.ceil(relPosition),
-                    prevPoint = util.pickVec3(keyPoints, prevPointIdx),
-                    nextPoint = util.pickVec3(keyPoints, nextPointIdx);
+                    prevPoint = util.pickVec3(this.keyPoints, prevPointIdx),
+                    nextPoint = util.pickVec3(this.keyPoints, nextPointIdx);
                 return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
-            }
+            };
 
-            var relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPoints.length / 3,
+            var keyPointsCount = this.keyPoints.length / 3,
+                relTime = this.getRelativeTime(),
+                relPosition = relTime * keyPointsCount,
                 absPosition = getAbsPosition(relPosition),
-                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPoints.length / 3));
-
-            var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
-                eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
-                lookAt = vec3.add([0, 0, TUBE_RADIUS], absTarget);
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointsCount)),
+                look = vec3.direction(absPosition, absTarget, []),
+                up = vec3.cross(look, vec3.cross([0, 0, 1], look), []),
+                tilt = mat4.rotate(mat4.identity([]), this.getShipTilt(), look),
+                offPosition = vec3.subtract(absPosition, vec3.scale(look, CAM_BACK_OFFSET)),
+                eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS + CAM_HEIGHT, [])), offPosition),
+                lookAt = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS, [])), absTarget);
 
             var viewAngleVert = 45;
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
