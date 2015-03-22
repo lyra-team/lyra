@@ -650,7 +650,6 @@ module game {
                 colors = this.createColors(points.length / 3, 0.3, 0.5, 0.7),
                 indicies = this.createBlockIndicies(blockPoints.length / 3),
                 normals = this.generateNormals(points, indicies);
-            console.info(blockPoints);//TODO: remove
 
             this.blockPosBuf.uploadData(points);
             this.blockColBuf.uploadData(colors);
