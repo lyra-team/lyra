@@ -425,7 +425,7 @@ module game {
 
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
-            var STEP = 0.05;
+            var STEP = 0.2;
             var STEP_CORRECTION = 20 * STEP;
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
@@ -533,6 +533,7 @@ module game {
                 this.songLastOffset = 0;
                 this.timeLastOffset = audio.context.currentTime;
                 this.uploadMapBufs();
+                this.uploadBlockBufs();
                 this.loop();
             }, 100);
         }
