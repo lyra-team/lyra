@@ -383,7 +383,7 @@ module game {
 
         private uploadMapBufs() {
             var keyPointCount = this.keyPoints.length / 3,
-                sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
+                sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
@@ -412,9 +412,9 @@ module game {
             }
 
             var relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPoints.length / 3,
+                relPosition = relTime * this.keyPoints.length / 3,
                 absPosition = getAbsPosition(relPosition),
-                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPoints.length / 3));
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, this.keyPoints.length / 3));
 
             var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
                 eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
