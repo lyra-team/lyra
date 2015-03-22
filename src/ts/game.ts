@@ -32,9 +32,10 @@ module game {
             return false;
 
         var cnt = 0
-        for (var i = 0; i < prev.length; i++)
+        for (var i = 0; i < prev.length; i++) {
             if (complexNorm(prev.real[i], prev.imag[i]) < complexNorm(current.real[i], current.imag[i]))
                 cnt++;
+        }
 
         console.log(cnt + " " + current.length + " " + current.length * thresh);
 
@@ -446,17 +447,17 @@ module game {
             var all_low = [], all_high = [];
             var magnitudes = [];
 
-            var prev_complex = [];
+            var prev_complex = new complex_array.ComplexArray(0);
             for (var i = Math.max(frames_step, W_SIZE), time = 0; i + W_SIZE < channelData.length; i += frames_step, time += STEP) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
                 var complex = new complex_array.ComplexArray(fft_buffer);
                 complex.FFT();
 
-                magnitudes.push(0);
+                magnitudes.push(false);
                 if (isMaximum(prev_complex, complex, THRESH)) {
-                    magnitudes[magnitudes.length - 2] = 0;
-                    magnitudes[magnitudes.length - 1] = 1;
+                    magnitudes[magnitudes.length - 2] = false;
+                    magnitudes[magnitudes.length - 1] = true;
                 }
 
                 var low = 0, high = 0;
@@ -471,14 +472,17 @@ module game {
 
                 all_low.push(low);
                 all_high.push(high);
+                prev_complex = complex;
             }
 
             this.blockPositions = [];
             magnitudes.map(function(value, i, n) {
-                if (value == 1) {
+                if (value == true) {
                     this.blockPositions.push([i, Math.floor(Math.random() * 5)]);
                 }
             }, this);
+
+            console.log(this.blockPositions.length);
 
             var max_low = Math.max.apply(Math, all_low);
             var max_high = Math.max.apply(Math, all_high);
