@@ -16,10 +16,11 @@ module game {
     var CAM_HEIGHT = 5;
     var CAM_VIEW_DISTANCE = 10;
     var CAM_BACK_OFFSET = 1;
-    var MAX_FACE_TILT = 0.4;
-    var MAX_HEAD_SHIFT = 17;
-    var ANGLE_ALPHA = 0.2;
-    var X_ALPHA = 0.2;
+    var MAX_FACE_TILT = 0.35;
+    var MAX_HEAD_SHIFT = 15;
+    var ANGLE_ALPHA = 0.1;
+    var X_ALPHA = 0.1;
+    var STICKING_ALPHA = 0.05;
 
     function complexNorm(real, imag) {
         return Math.sqrt(real * real + imag * imag);
@@ -434,14 +435,45 @@ module game {
         private getShipTilt() {
             var signA = this.faceAngle < 0 ? -1 : 1,
                absA = Math.abs(this.faceAngle);
-            var faceLean = signA * Math.min(absA, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
+            var faceLean = (signA * Math.min(absA, MAX_FACE_TILT) + MAX_FACE_TILT) /
+                    (2 * MAX_FACE_TILT);
 
             var signX = this.head[0] < 0 ? -1 : 1,
                absX = Math.abs(this.head[0]);
-            var headShift = -signX * Math.min(absX, MAX_HEAD_SHIFT) / MAX_HEAD_SHIFT * SECTOR_ANGLE / 2;
+            var headShift = (-signX * Math.min(absX, MAX_HEAD_SHIFT) + MAX_HEAD_SHIFT) /
+                    (2 * MAX_HEAD_SHIFT);
 
-            return (2 * faceLean + 3 * headShift) / 5;
-            //return headShift;
+            var p = (2 * faceLean + 3 * headShift) / 5;
+
+            return this.solveAngle(p);
+        }
+
+        private solveAngle(p) {
+            var a = SECTOR_ANGLE * 2.5 / STRIP_COUNT;
+            var b = 1 / (2 * a);
+            var alpha = STICKING_ALPHA;
+
+            var A = a * alpha / Math.PI;
+            var B = b;
+            var C = p - 0.5;
+            var w = 5 * Math.PI / a;
+
+            var l = -a;
+            var r = a;
+            var it = 0;
+            while (it < 100 && r - l > Math.PI / 500) {
+                var x = (l + r) / 2;
+                var y = A * Math.sin(w * x) + B * x;
+                if (y < C) {
+                    l = x;
+                } else {
+                    r = x;
+                }
+            }
+
+
+            console.log(x);
+            return x;
         }
 
         private uploadMapBufs() {
