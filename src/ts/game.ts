@@ -9,12 +9,14 @@ module game {
     var FREQS_BINS_COUNT = 6;
     var gl;
 
+    var EYE_SHIFT = 0.2;
     var STRIP_COUNT = 5;
-    var TUBE_RADIUS = 5;
+    var TUBE_RADIUS = 10;
     var SECTOR_ANGLE = Math.PI / 2;
     var CAM_HEIGHT = 5;
     var CAM_VIEW_DISTANCE = 10;
     var CAM_BACK_OFFSET = 1;
+    var MAX_FACE_TILT = 0.4;
 
     function complexNorm(real, imag) {
         return Math.sqrt(real * real + imag * imag);
@@ -51,6 +53,9 @@ module game {
         private faceAngle;
 
         private keyPoints;
+
+        private anaglyph = false;
+        private stereo = false;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -93,6 +98,20 @@ module game {
                 this.togglePause();
                 return true;
             });
+            handler.onDown(input.Key.A, () => {
+                this.anaglyph = !this.anaglyph;
+                if (this.anaglyph) {
+                    this.stereo = false;
+                }
+                return true;
+            });
+            handler.onDown(input.Key.S, () => {
+                this.stereo = !this.stereo;
+                if (this.stereo) {
+                    this.anaglyph = false;
+                }
+                return true;
+            });
 
 
             var statusMessages = {
@@ -105,9 +124,6 @@ module game {
             };
 
             document.addEventListener("headtrackrStatus", (event:any) => {
-                // if (event.status in supportMessages) {
-                    // var messagep = document.getElementById('gUMMessage');
-                    // messagep.innerHTML = supportMessages[event.status];
                 if (event.status in statusMessages) {
                     console.log(statusMessages[event.status]);
                 }
@@ -132,7 +148,6 @@ module game {
 
         private onFaceLeaned(angle) {
             this.faceAngle = angle - Math.PI / 2;
-            console.log(this.faceAngle);
         }
 
         private makeFullscreen() {
@@ -146,10 +161,13 @@ module game {
 
         private generateHacks(n) {
             var uvs = new Float32Array(n);
-            for (var i = 0; 3 * i < n; i++) {
-                uvs[i * 3] = 1;
-                uvs[i * 3 + 1] = -1;
-                uvs[i * 3 + 2] = 1;
+            for(var i =0; 6 * i < n; i++) {
+                uvs[i * 6] = 1;
+                uvs[i * 6 + 1] = -1;
+                uvs[i * 6 + 2] = 1;
+                uvs[i * 6 + 3] = -1;
+                uvs[i * 6 + 4] = 1;
+                uvs[i * 6 + 5] = -1;
             }
             return uvs;
         }
@@ -267,9 +285,13 @@ module game {
             return normals;
         }
 
-        private createCameraMtx(eye, angleOfView, lookAt) {
+        private createCameraMtx(eye, angleOfView, lookAt, eyeShift) {
             var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 300.0),
                 vMatrix = mat4.lookAt(eye, lookAt, [0, 0, 1]);
+            var shift = mat4.create();
+            mat4.identity(shift);
+            shift = mat4.translate(shift, [eyeShift, 0, 0]);
+            vMatrix = mat4.multiply(shift, vMatrix);
             return mat4.multiply(pMatrix, vMatrix);
         }
 
@@ -378,7 +400,10 @@ module game {
         }
 
         private getShipTilt() {
-            return this.faceAngle;
+            return 0;
+            //var sign = this.faceAngle < 0 ? -1 : 1,
+            //    abs = Math.abs(this.faceAngle);
+            //return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
         }
 
         private uploadMapBufs() {
@@ -387,18 +412,15 @@ module game {
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
-                normals = this.generateNormals(points, indicies),
                 hacks = this.generateHacks(points.length / 3);
 
             this.posBuf.uploadData(points);
-            this.normBuf.uploadData(normals);
             this.colBuf.uploadData(colors);
             this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
         }
 
         private renderMap() {
-            this.mapShader.vertexAttribute('aNormal', this.normBuf);
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
@@ -409,29 +431,56 @@ module game {
                     prevPoint = util.pickVec3(this.keyPoints, prevPointIdx),
                     nextPoint = util.pickVec3(this.keyPoints, nextPointIdx);
                 return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
-            }
+            };
 
+            var keyPointsCount = this.keyPoints.length / 3,
+                relTime = this.getRelativeTime(),
+                relPosition = relTime * keyPointsCount,
             var relTime = this.getRelativeTime(),
                 relPosition = relTime * this.keyPoints.length / 3,
                 absPosition = getAbsPosition(relPosition),
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointsCount)),
+                look = vec3.direction(absPosition, absTarget, []),
+                up = vec3.cross(look, vec3.cross([0, 0, 1], look), []),
+                tilt = mat4.rotate(mat4.identity([]), this.getShipTilt(), look),
+                offPosition = vec3.subtract(absPosition, vec3.scale(look, CAM_BACK_OFFSET)),
+                eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS + CAM_HEIGHT, [])), offPosition),
+                lookAt = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS, [])), absTarget);
                 absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, this.keyPoints.length / 3));
 
-            var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
-                eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
-                lookAt = vec3.add([0, 0, TUBE_RADIUS], absTarget);
-
             var viewAngleVert = 45;
-            this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt));
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
             this.setUniformCameraLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
 
             for (var i = 0; i < FREQS_BINS_COUNT; i++) {
                 this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
             }
+            this.mapShader.uniformF('uTime', this.getAbsoluteTime());
 
-            gl.enable(gl.DEPTH_TEST);
-            gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            if (this.anaglyph) {
+                gl.enable(gl.DEPTH_TEST);
+                gl.clear(gl.DEPTH | gl.COLOR);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, -EYE_SHIFT));
+                gl.colorMask(1, 0, 0, 0);
+                this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, EYE_SHIFT));
+                gl.colorMask(0, 1, 1, 1);
+                gl.clear(gl.DEPTH_BUFFER_BIT);
+                this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+                gl.colorMask(1, 1, 1, 1);
+            } else if (this.stereo) {
+                gl.enable(gl.DEPTH_TEST);
+                gl.clear(gl.DEPTH | gl.COLOR);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, -EYE_SHIFT));
+                this.mapShader.draw(this.canvas.width/2, this.canvas.height, gl.TRIANGLES, this.indBuf, 0);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, EYE_SHIFT));
+                this.mapShader.draw(this.canvas.width/2, this.canvas.height, gl.TRIANGLES, this.indBuf, this.canvas.width/2);
+            } else {
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, 0));
+                gl.enable(gl.DEPTH_TEST);
+                gl.clear(gl.DEPTH | gl.COLOR);
+                this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            }
         }
 
         private renderLights() {
@@ -492,7 +541,7 @@ module game {
             this.getFreqs();
 
             this.renderMap();
-            this.renderLights();
+            //this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));
         }
     }
