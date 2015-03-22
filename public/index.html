@@ -12,7 +12,6 @@
 
     <script id="map_vshader" type="x-shader/x-vertex">
         attribute vec3 aPosition;
-        attribute vec3 aNormal;
         attribute vec3 aColor;
         attribute float aHack;
 
@@ -26,7 +25,6 @@
         void main(void) {
             vColor = aColor;
             vPosition = aPosition;
-            vNormal = aNormal;
             vHack = aHack;
             gl_Position = uCameraMtx * vec4(aPosition, 1.0);
         }
@@ -37,8 +35,6 @@
         precision mediump float;
 
         const float borderThreshold = 0.01;
-        const vec3 borderColor = vec3(1.0, 0.0, 1.0);
-        const vec3 middleBorderColor = vec3(0.0, 0.0, 1.0);
 
         uniform vec3 uCameraPosition;
         uniform float uFreqBins[FREQ_BINS_COUNT];
@@ -53,14 +49,12 @@
 
         varying vec3 vColor;
         varying vec3 vPosition;
-        varying vec3 vNormal;
         varying float vHack;
 
-        vec3 applyLight(Light light, vec3 surfaceColor, vec3 normal, vec3 surfacePos, vec3 surfaceToCamera) {
+        vec3 applyLight(Light light, vec3 surfaceColor, vec3 surfacePos, vec3 surfaceToCamera) {
             vec3 lightDirection = normalize(surfacePos - light.position);
             float distanceToLight = length(light.position - surfacePos);
             float ambient = min(5.0 / distanceToLight / distanceToLight, 0.2);
-            float diffuse = max(0.0, dot(normal, -lightDirection));
             float specular = 0.0;
             float attenuation = 1.0 / (1.0 + 0.03 * pow(length(light.position - surfacePos), 3.0));
             vec3 linearColor = (ambient + attenuation * (specular)) * surfaceColor;
@@ -73,18 +67,21 @@
             vec3 linearColor = vec3(0);
             float intensity = pow(uFreqBins[0], 10.0) * 0.1 / min(abs(vHack - 1.0), abs(-1.0 - vHack));
             float y = abs(vHack);
+            float a = (1.0 + sin(uTime*0.5)) / 2.0;
             for (int i = 0; i < FREQ_BINS_COUNT; i++) {
                 float freq = uFreqBins[i];
                 vec2 p = vec2(vPosition.x, y);
 
-                p.x += 0.0;
-                p.y += sin(p.x) / 3.0;
+                p.x = p.x / 10.0;
+                p.y += sin(p.x * (12.0 + clamp(freq, 0.35, 2.0) / 3.0)) * cos(p.x * 2.0) * freq / 2.0;
 
-                if (p.y < freq / 2.0) {
-                    linearColor = vec3((y + 1.0) / 2.0);
-                }
+                float intensity = abs(0.01 / p.y) * clamp(freq, 0.35, 2.0);
+                float g = 0.5 * intensity;
+                float b = 1.75 * intensity;
+                linearColor += vec3(1.0 * intensity * (float(i) / 5.0), g * a, b * (1.0 - a) * (3.0 / float(FREQ_BINS_COUNT)));
             }
-            linearColor += applyLight(uLight, vColor, vNormal, vPosition, uCameraPosition-vPosition);
+            linearColor += applyLight(uLight, vColor, vPosition, uCameraPosition-vPosition);
+            vec3 borderColor = vec3(1.0, a, 1.0 - a);
             gl_FragColor = vec4(linearColor + borderColor * intensity, 1.0);
         }
     </script>

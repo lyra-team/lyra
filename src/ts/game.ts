@@ -49,8 +49,8 @@ module game {
         private freqBins;
 
         private htracker:headtrackr.Tracker;
-        private head:vec3;
-        private faceAngle;
+        private head:vec3 = [0, 0, 0];
+        private faceAngle = 0;
 
         private keyPoints;
 
@@ -138,7 +138,7 @@ module game {
             });
 
             this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
-            this.htracker.init(ui.$("inputVideo"),ui.$("inputCanvas"));
+            this.htracker.init(ui.$("inputVideo"), ui.$("inputCanvas"));
             this.htracker.start();
         }
 
@@ -147,7 +147,9 @@ module game {
         }
 
         private onFaceLeaned(angle) {
-            this.faceAngle = angle - Math.PI / 2;
+            var alpha = 0.1;
+            angle -= Math.PI / 2;
+            this.faceAngle = angle * alpha + this.faceAngle * (1 - alpha);
         }
 
         private makeFullscreen() {
@@ -311,12 +313,12 @@ module game {
 
             var channelData = buffer.getChannelData(0);
             var frames_step = STEP * buffer.sampleRate | 0;
-            
+
             var fft_buffer = new Float32Array(W_SIZE * 2);
-            
+
             this.keyPoints = [0, 0, 0];
             var last_point : vec3 = [0, 0, 0];
-            
+
             for (var i = frames_step, time = 0; i + W_SIZE < channelData.length; i += frames_step, time++) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
@@ -335,7 +337,7 @@ module game {
 
                 low /= 150;
                 high /= 70;
-                
+
                 console.log(low + " " + high);
                 var delta : vec3 = [1, Math.cos(T * (time + high)), T * T * T * time + high - 0.5];
                 delta = vec3.scale(delta, (STANDART_V + low));
@@ -352,7 +354,7 @@ module game {
         start(songBuffer: AudioBuffer) {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
-            
+
             this.preprocessSong(songBuffer);
 
             this.song.buffer = songBuffer;
@@ -400,10 +402,10 @@ module game {
         }
 
         private getShipTilt() {
-            return 0;
-            //var sign = this.faceAngle < 0 ? -1 : 1,
-            //    abs = Math.abs(this.faceAngle);
-            //return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
+            // return 0;
+            var sign = this.faceAngle < 0 ? -1 : 1,
+               abs = Math.abs(this.faceAngle);
+            return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
         }
 
         private uploadMapBufs() {
@@ -412,18 +414,15 @@ module game {
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
-                normals = this.generateNormals(points, indicies),
                 hacks = this.generateHacks(points.length / 3);
 
             this.posBuf.uploadData(points);
-            this.normBuf.uploadData(normals);
             this.colBuf.uploadData(colors);
             this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
         }
 
         private renderMap() {
-            this.mapShader.vertexAttribute('aNormal', this.normBuf);
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
@@ -455,6 +454,7 @@ module game {
             for (var i = 0; i < FREQS_BINS_COUNT; i++) {
                 this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
             }
+            this.mapShader.uniformF('uTime', this.getAbsoluteTime());
 
             if (this.anaglyph) {
                 gl.enable(gl.DEPTH_TEST);
