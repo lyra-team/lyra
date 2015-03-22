@@ -109,7 +109,9 @@ div.dropOverlay h1 {
 .spinner {
     position: absolute;
     top: 50%;
-    margin: -15px auto;
+    left: 50%;
+    margin-top: -15px;
+    margin-left: -25px;
     width: 50px;
     height: 30px;
     text-align: center;
