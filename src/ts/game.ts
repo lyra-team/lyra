@@ -353,7 +353,7 @@ module game {
 
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
-            var STEP = 0.1  ;
+            var STEP = 0.05;
             var STEP_CORRECTION = 20 * STEP;
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
@@ -424,7 +424,7 @@ module game {
                 current_low = ALPHA * current_low + (1 - ALPHA) * low;
                 current_high = ALPHA * current_high + (1 - ALPHA) * low;
 
-                var delta : vec3 = [1, Y * Math.cos(T * (time + high)), Z * (-2 + high)];
+                var delta : vec3 = [1, Y * Math.cos(T * (time/* + high*/)), Z * (-2 - 0.2 * low + high )];
                 delta = vec3.scale(delta, (STANDART_V + low) * STEP_CORRECTION);
                 last_point = vec3.add(last_point, delta);
 
@@ -439,6 +439,8 @@ module game {
             this.song = audio.context.createBufferSource();
 
             this.preprocessSong(songBuffer);
+            this.eye = [0, 0, 0];
+            this.lookAt = [0, 0, 0];
 
             this.song.buffer = songBuffer;
             this.analyser = audio.context.createAnalyser();
@@ -606,8 +608,18 @@ module game {
             var look = vec3.direction(absPosition.pos, absTarget.pos, []),
                 tilt = mat4.rotate(mat4.identity([]), this.getShipTilt(), absPosition.guide);
             //offPosition = vec3.subtract(absPosition.pos, vec3.scale(look, CAM_BACK_OFFSET)),
-            this.eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(absPosition.up, TUBE_RADIUS + CAM_HEIGHT, [])), absPosition.pos);
-            this.lookAt = vec3.add(vec3.scale(absTarget.up, TUBE_RADIUS + CAM_TARGET_HEIGHT, []), absTarget.pos);
+            
+            var eye_ALPHA = 0.2;
+            var lookAt_ALPHA = 0.3;
+
+            var eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(absPosition.up, TUBE_RADIUS + CAM_HEIGHT, [])), absPosition.pos);
+            var lookAt = vec3.add(vec3.scale(absTarget.up, TUBE_RADIUS + CAM_TARGET_HEIGHT, []), absTarget.pos);
+
+            // this.eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(absPosition.up, TUBE_RADIUS + CAM_HEIGHT, [])), absPosition.pos);
+            // this.lookAt = vec3.add(vec3.scale(absTarget.up, TUBE_RADIUS + CAM_TARGET_HEIGHT, []), absTarget.pos);
+        
+            this.eye = vec3.add(vec3.scale(eye, eye_ALPHA), vec3.scale(this.eye, 1 - eye_ALPHA), []);
+            this.lookAt = vec3.add(vec3.scale(lookAt, lookAt_ALPHA), vec3.scale(this.lookAt, 1 - lookAt_ALPHA), []);
         }
 
         private renderBackground() {
