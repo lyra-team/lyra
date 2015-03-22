@@ -640,7 +640,7 @@ module game {
 
         private uploadBlockBufs() {
             var keyPointCount = this.keyPoints.length / 3,
-                blockPoints = map.generateBlocks(this.sectorsPoints, this.blockPositions, STRIP_COUNT, [0.5, 0.5, 0.5]),
+                blockPoints = map.generateBlocks(this.sectorsPoints, this.blockPositions, STRIP_COUNT, [1.0, 1.0, 1.0]),
                 points = this.createBlockPoints(blockPoints),
                 colors = this.createColors(points.length / 3, 0.3, 0.5, 0.7),
                 indicies = this.createBlockIndicies(blockPoints.length / 3),
@@ -799,7 +799,7 @@ module game {
 
         private renderBlocks() {
             this.blocksShader.vertexAttribute('aPosition', this.blockPosBuf);
-            this.blocksShader.vertexAttribute('aColor', this.blockColBuf);
+            //this.blocksShader.vertexAttribute('aColor', this.blockColBuf);
             //this.blocksShader.vertexAttribute('aNormal', this.blockNormBuf);
 
             this.blocksShader.uniformF('uCameraPosition', this.eye[0], this.eye[1], this.eye[2]);
