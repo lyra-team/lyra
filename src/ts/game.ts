@@ -26,6 +26,20 @@ module game {
         return Math.sqrt(real * real + imag * imag);
     }
 
+    function isMaximum (prev, current, thresh) {
+        if (prev.length == 0)
+            return false;
+
+        var cnt = 0
+        for (var i = 0; i < prev.length; i++)
+            if (complexNorm(prev.real[i], prev.imag[i]) < complexNorm(current.real[i], current.imag[i]))
+                cnt++;
+
+        console.log(cnt + " " + current.length + " " + current.length * thresh);
+
+        return cnt >= current.length * thresh;
+    }
+
     export class Game {
         private root:HTMLElement;
         private canvas:HTMLCanvasElement;
@@ -63,6 +77,7 @@ module game {
         private viewAngleVert = 45;
 
         private keyPoints;
+        private blockPositions;
 
         private anaglyph = false;
         private stereo = false;
@@ -331,7 +346,8 @@ module game {
             var Z = 0.5;
             var Y = 1;
             var ALPHA = 0.3;
-            
+            var THRESH = 0.6;
+
             var channelData = buffer.getChannelData(0);
             var frames_step = STEP * buffer.sampleRate | 0;
 
@@ -339,13 +355,21 @@ module game {
 
             this.keyPoints = [0, 0, 0];
             var last_point : vec3 = [0, 0, 0];
-            var all_low = [], all_high = []
+            var all_low = [], all_high = [];
+            var magnitudes = [];
 
+            var prev_complex = [];
             for (var i = Math.max(frames_step, W_SIZE), time = 0; i + W_SIZE < channelData.length; i += frames_step, time += STEP) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
                 var complex = new complex_array.ComplexArray(fft_buffer);
                 complex.FFT();
+
+                magnitudes.push(0);
+                if (isMaximum(prev_complex, complex, THRESH)) {
+                    magnitudes[magnitudes.length - 2] = 0;
+                    magnitudes[magnitudes.length - 1] = 1;
+                }
 
                 var low = 0, high = 0;
                 complex.map(function (value, i, n) {
@@ -360,6 +384,13 @@ module game {
                 all_low.push(low);
                 all_high.push(high);
             }
+
+            this.blockPositions = []
+            magnitudes.map(function(value, i, n) {
+                if (value == 1) {
+                    blockPositions += [i, Math.floor(Math.random() * 5)]; 
+                }
+            })
 
             var max_low = Math.max.apply(Math, all_low);
             var max_high = Math.max.apply(Math, all_high);
