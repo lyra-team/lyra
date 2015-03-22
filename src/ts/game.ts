@@ -316,7 +316,8 @@ module game {
             
             this.keyPoints = [0, 0, 0];
             var last_point : vec3 = [0, 0, 0];
-            
+            //var all_low = [], all_high = []
+            var low = 0, high = 0;
             for (var i = frames_step, time = 0; i + W_SIZE < channelData.length; i += frames_step, time++) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
@@ -332,6 +333,8 @@ module game {
                         high += complexNorm(value.real, value.imag);
                     }
                 });
+
+                //low += 
 
                 low /= 150;
                 high /= 70;
