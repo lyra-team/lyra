@@ -17,6 +17,9 @@ module game {
     var CAM_VIEW_DISTANCE = 10;
     var CAM_BACK_OFFSET = 1;
     var MAX_FACE_TILT = 0.4;
+    var MAX_HEAD_SHIFT = 17;
+    var ANGLE_ALPHA = 0.2;
+    var X_ALPHA = 0.2;
 
     function complexNorm(real, imag) {
         return Math.sqrt(real * real + imag * imag);
@@ -143,11 +146,12 @@ module game {
         }
 
         private onHeadMoved(x, y, z) {
-            this.head = [x, y, z];
+            var alpha = X_ALPHA;
+            this.head = vec3.add(vec3.scale([x, y, z], alpha), vec3.scale(this.head, 1 - alpha));
         }
 
         private onFaceLeaned(angle) {
-            var alpha = 0.1;
+            var alpha = ANGLE_ALPHA;
             angle -= Math.PI / 2;
             this.faceAngle = angle * alpha + this.faceAngle * (1 - alpha);
         }
@@ -418,10 +422,16 @@ module game {
         }
 
         private getShipTilt() {
-            // return 0;
-            var sign = this.faceAngle < 0 ? -1 : 1,
-               abs = Math.abs(this.faceAngle);
-            return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
+            var signA = this.faceAngle < 0 ? -1 : 1,
+               absA = Math.abs(this.faceAngle);
+            var faceLean = signA * Math.min(absA, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
+
+            var signX = this.head[0] < 0 ? -1 : 1,
+               absX = Math.abs(this.head[0]);
+            var headShift = -signX * Math.min(absX, MAX_HEAD_SHIFT) / MAX_HEAD_SHIFT * SECTOR_ANGLE / 2;
+
+            return (2 * faceLean + 3 * headShift) / 5;
+            //return headShift;
         }
 
         private uploadMapBufs() {
