@@ -17,7 +17,6 @@
         attribute float aHack;
 
         uniform mat4 uCameraMtx;
-        uniform float uTime;
 
         varying vec3 vColor;
         varying vec3 vPosition;
@@ -38,10 +37,12 @@
         precision mediump float;
 
         const float borderThreshold = 0.01;
-        const vec3 borderColor = vec3(1.0, 0.0, 0.0);
+        const vec3 borderColor = vec3(1.0, 0.0, 1.0);
+        const vec3 middleBorderColor = vec3(0.0, 0.0, 1.0);
 
         uniform vec3 uCameraPosition;
         uniform float uFreqBins[FREQ_BINS_COUNT];
+        uniform float uTime;
 
         uniform struct Light {
            vec3 position;
@@ -70,8 +71,19 @@
 
         void main(void) {
             vec3 linearColor = vec3(0);
-            float interactiveBorderThreshold = max(borderThreshold, 0.3 * (uFreqBins[0] - 0.5));
-            float intensity = pow(uFreqBins[0], 3.0) * 0.1 / min(abs(vHack - 1.0), abs(-1.0 - vHack));
+            float intensity = pow(uFreqBins[0], 10.0) * 0.1 / min(abs(vHack - 1.0), abs(-1.0 - vHack));
+            float y = abs(vHack);
+            for (int i = 0; i < FREQ_BINS_COUNT; i++) {
+                float freq = uFreqBins[i];
+                vec2 p = vec2(vPosition.x, y);
+
+                p.x += 0.0;
+                p.y += sin(p.x) / 3.0;
+
+                if (p.y < freq / 2.0) {
+                    linearColor = vec3((y + 1.0) / 2.0);
+                }
+            }
             linearColor += applyLight(uLight, vColor, vNormal, vPosition, uCameraPosition-vPosition);
             gl_FragColor = vec4(linearColor + borderColor * intensity, 1.0);
         }

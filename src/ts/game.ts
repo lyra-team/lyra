@@ -9,8 +9,9 @@ module game {
     var FREQS_BINS_COUNT = 6;
     var gl;
 
+    var EYE_SHIFT = 0.2;
     var STRIP_COUNT = 5;
-    var TUBE_RADIUS = 5;
+    var TUBE_RADIUS = 10;
     var SECTOR_ANGLE = Math.PI / 2;
     var CAM_HEIGHT = 5;
     var CAM_VIEW_DISTANCE = 10;
@@ -53,7 +54,8 @@ module game {
 
         private keyPoints;
 
-        private anaglyph = true;
+        private anaglyph = false;
+        private stereo = false;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -94,6 +96,20 @@ module game {
             handler.attach(document);
             handler.onDown(input.Key.SPACE, () => {
                 this.togglePause();
+                return true;
+            });
+            handler.onDown(input.Key.A, () => {
+                this.anaglyph = !this.anaglyph;
+                if (this.anaglyph) {
+                    this.stereo = false;
+                }
+                return true;
+            });
+            handler.onDown(input.Key.S, () => {
+                this.stereo = !this.stereo;
+                if (this.stereo) {
+                    this.anaglyph = false;
+                }
                 return true;
             });
 
@@ -145,10 +161,13 @@ module game {
 
         private generateHacks(n) {
             var uvs = new Float32Array(n);
-            for (var i = 0; 3 * i < n; i++) {
-                uvs[i * 3] = 1;
-                uvs[i * 3 + 1] = -1;
-                uvs[i * 3 + 2] = 1;
+            for(var i =0; 6 * i < n; i++) {
+                uvs[i * 6] = 1;
+                uvs[i * 6 + 1] = -1;
+                uvs[i * 6 + 2] = 1;
+                uvs[i * 6 + 3] = -1;
+                uvs[i * 6 + 4] = 1;
+                uvs[i * 6 + 5] = -1;
             }
             return uvs;
         }
@@ -438,17 +457,23 @@ module game {
             }
 
             if (this.anaglyph) {
-                var eyeShift = 0.1;
                 gl.enable(gl.DEPTH_TEST);
                 gl.clear(gl.DEPTH | gl.COLOR);
-                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, eyeShift));
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, -EYE_SHIFT));
                 gl.colorMask(1, 0, 0, 0);
                 this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
-                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, -eyeShift));
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, EYE_SHIFT));
                 gl.colorMask(0, 1, 1, 1);
                 gl.clear(gl.DEPTH_BUFFER_BIT);
                 this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
                 gl.colorMask(1, 1, 1, 1);
+            } else if (this.stereo) {
+                gl.enable(gl.DEPTH_TEST);
+                gl.clear(gl.DEPTH | gl.COLOR);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, -EYE_SHIFT));
+                this.mapShader.draw(this.canvas.width/2, this.canvas.height, gl.TRIANGLES, this.indBuf, 0);
+                this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, EYE_SHIFT));
+                this.mapShader.draw(this.canvas.width/2, this.canvas.height, gl.TRIANGLES, this.indBuf, this.canvas.width/2);
             } else {
                 this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt, 0));
                 gl.enable(gl.DEPTH_TEST);
@@ -515,7 +540,7 @@ module game {
             this.getFreqs();
 
             this.renderMap();
-            this.renderLights();
+            //this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));
         }
     }

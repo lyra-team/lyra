@@ -210,9 +210,9 @@ module webgl {
             buffer.unbind();
         }
 
-        draw(width, height, mode, buffer:ElementArrayBuffer) {
+        draw(width, height, mode, buffer:ElementArrayBuffer, x=0, y=0) {
             this.bind();
-            gl.viewport(0, 0, width, height);
+            gl.viewport(x, y, width, height);
             buffer.bind();
             gl.drawElements(mode, buffer.getCount(), gl.UNSIGNED_SHORT, 0);
             buffer.unbind();
