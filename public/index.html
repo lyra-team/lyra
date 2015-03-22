@@ -30,27 +30,6 @@
         }
     </script>
 
-    <script id="plane_vshader" type="x-shader/x-vertex">
-        attribute vec3 aPosition;
-        attribute vec3 aColor;
-        attribute vec3 aNormal;
-
-        uniform mat4 uCameraMtx;
-        uniform mat4 uModelMtx;
-
-        varying vec3 vPosition;
-        varying vec3 vColor;
-        varying vec3 vNormal;
-
-
-        void main(void) {
-            vPosition = aPosition;
-            vColor = aColor;
-            vNormal = aNormal;
-            gl_Position = uCameraMtx * uModelMtx * vec4(aPosition, 1.0);
-        }
-    </script>
-
     <script id="map_fshader" type="x-shader/x-fragment">
         #line 35
         precision mediump float;
@@ -86,7 +65,7 @@
 
         void main(void) {
             vec3 linearColor = vec3(0);
-            float intensity = pow(uFreqBins[0], 10.0) * 0.1 / min(abs(vHack - 1.0), abs(-1.0 - vHack));
+            float intensity = pow(uFreqBins[0]/2.0, 5.0) * 4.0 / min(abs(vHack - 1.0), abs(-1.0 - vHack));
             float y = abs(vHack);
             float a = (1.0 + sin(uTime*0.5)) / 2.0;
             for (int i = 0; i < FREQ_BINS_COUNT; i++) {
@@ -96,7 +75,7 @@
                 p.x = p.x / 10.0;
                 p.y += sin(p.x * (12.0 + clamp(freq, 0.35, 2.0) / 3.0)) * cos(p.x * 2.0) * freq / 2.0;
 
-                float intensity = abs(0.01 / p.y) * clamp(freq, 0.35, 2.0);
+                float intensity = abs(0.01 / min(abs(p.y - 0.0), abs(p.y - 1.0))) * clamp(freq, 0.35, 2.0);
                 float g = 0.5 * intensity;
                 float b = 1.75 * intensity;
                 linearColor += vec3(1.0 * intensity * (float(i) / 5.0), g * a, b * (1.0 - a) * (3.0 / float(FREQ_BINS_COUNT)));
@@ -107,7 +86,82 @@
         }
     </script>
 
+    <script id="plane_vshader" type="x-shader/x-vertex">
+        attribute vec3 aPosition;
+        attribute vec3 aColor;
+        attribute vec3 aNormal;
+
+        uniform mat4 uCameraMtx;
+        uniform mat4 uModelMtx;
+
+        varying vec3 vPosition;
+        varying vec3 vColor;
+        varying vec3 vNormal;
+
+
+        void main(void) {
+            vPosition = aPosition;
+            vColor = aColor;
+            vNormal = aNormal;
+            gl_Position = uCameraMtx * uModelMtx * vec4(aPosition, 1.0);
+        }
+    </script>
+
     <script id="plane_fshader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform vec3 uCameraPosition;
+
+        uniform struct Light {
+           vec3 position;
+           vec3 intensities;
+           float attenuation;
+           float ambientCoefficient;
+        } uLight;
+
+        varying vec3 vColor;
+        varying vec3 vPosition;
+        varying vec3 vNormal;
+
+        vec3 applyLight(Light light, vec3 surfaceColor, vec3 normal, vec3 surfacePos, vec3 surfaceToCamera) {
+            vec3 lightDirection = normalize(surfacePos - light.position);
+            float distanceToLight = length(light.position - surfacePos);
+            float ambient = min(5.0 / distanceToLight / distanceToLight, 0.2);
+            float diffuse = max(0.0, dot(normal, -lightDirection));
+            float specular = 0.0;
+            float attenuation = 1.0 / (1.0 + 0.03 * pow(length(light.position - surfacePos), 3.0));
+            vec3 linearColor = (ambient + attenuation * (specular)) * surfaceColor;
+            vec3 gamma = vec3(1.0/2.2);
+            vec3 color = pow(linearColor, gamma);
+            return color;
+        }
+
+        void main(void) {
+            vec3 linearColor = applyLight(uLight, vColor, vNormal, vPosition, uCameraPosition - vPosition);
+            gl_FragColor = vec4(linearColor, 1.0);
+        }
+    </script>
+
+    <script id="blocks_vshader" type="x-shader/x-vertex">
+        attribute vec3 aPosition;
+        attribute vec3 aColor;
+        attribute vec3 aNormal;
+
+        uniform mat4 uCameraMtx;
+
+        varying vec3 vPosition;
+        varying vec3 vColor;
+        varying vec3 vNormal;
+
+        void main(void) {
+            vPosition = aPosition;
+            vColor = aColor;
+            vNormal = aNormal;
+            gl_Position = uCameraMtx * vec4(aPosition, 1.0);
+        }
+    </script>
+
+    <script id="blocks_fshader" type="x-shader/x-fragment">
         precision mediump float;
 
         uniform vec3 uCameraPosition;
@@ -203,8 +257,9 @@
         varying vec3 vPosition;
 
         void main(void) {
-            vec3 c1 = vec3(0.2, 0.0, 0.6);
-            vec3 c2 = vec3(0.2, 0.2, 0.0);
+            float freq = (uFreqBins[0] + uFreqBins[1]) / 2.0;
+            vec3 c1 = vec3(0.2, 0.0, 0.8) * (0.5 + freq*0.5);
+            vec3 c2 = vec3(0.2, 0.8, 0.0) * (0.5 + freq*0.5);
             vec2 xy = vPosition.xy;
             xy.y *= uRatio;
             float r = length(xy-uCenter);

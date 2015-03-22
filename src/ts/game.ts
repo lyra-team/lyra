@@ -32,9 +32,10 @@ module game {
             return false;
 
         var cnt = 0
-        for (var i = 0; i < prev.length; i++)
+        for (var i = 0; i < prev.length; i++) {
             if (complexNorm(prev.real[i], prev.imag[i]) < complexNorm(current.real[i], current.imag[i]))
                 cnt++;
+        }
 
         console.log(cnt + " " + current.length + " " + current.length * thresh);
 
@@ -50,12 +51,18 @@ module game {
         private lightShader:webgl.Shader;
         private backgroundShader:webgl.Shader;
         private planeShader: webgl.Shader;
+        private blocksShader: webgl.Shader;
 
         private posBuf:webgl.ArrayBuffer;
         private normBuf:webgl.ArrayBuffer;
         private colBuf:webgl.ArrayBuffer;
         private hackBuf:webgl.ArrayBuffer;
         private indBuf:webgl.ElementArrayBuffer;
+
+        private blockPosBuf:webgl.ArrayBuffer;
+        private blockNormBuf:webgl.ArrayBuffer;
+        private blockColBuf:webgl.ArrayBuffer;
+        private blockIndBuf:webgl.ElementArrayBuffer;
 
         private planePosBuf: webgl.ArrayBuffer;
         private planeNormBuf: webgl.ArrayBuffer;
@@ -84,6 +91,7 @@ module game {
         private viewAngleVert = 45;
 
         private keyPoints;
+        private sectorsPoints;
         private blockPositions;
 
         private anaglyph = false;
@@ -122,11 +130,20 @@ module game {
             frag = (<HTMLScriptElement> ui.$('plane_fshader')).text;
             this.planeShader = new webgl.Shader(vert, frag);
 
+            vert = (<HTMLScriptElement> ui.$('blocks_vshader')).text;
+            frag = (<HTMLScriptElement> ui.$('blocks_fshader')).text;
+            this.blocksShader = new webgl.Shader(vert, frag);
+
             this.posBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.normBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.colBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.hackBuf = new webgl.ArrayBuffer(1, gl.FLOAT);
             this.indBuf = new webgl.ElementArrayBuffer();
+
+            this.blockPosBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.blockNormBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.blockColBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.blockIndBuf = new webgl.ElementArrayBuffer();
 
             this.posRectBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.indRectBuf = new webgl.ElementArrayBuffer();
@@ -156,6 +173,16 @@ module game {
                 if (this.stereo) {
                     this.anaglyph = false;
                 }
+                return true;
+            });
+            handler.onDown(input.Key.Z, () => {
+                EYE_SHIFT /= 1.1;
+                console.info(EYE_SHIFT);
+                return true;
+            });
+            handler.onDown(input.Key.X, () => {
+                EYE_SHIFT *= 1.1;
+                console.info(EYE_SHIFT);
                 return true;
             });
 
@@ -219,6 +246,42 @@ module game {
                 uvs[i * 6 + 5] = -1;
             }
             return uvs;
+
+            //var uvs = new Float32Array((n - 1) * splinesN * 2 * 3); TODO: redo so
+            //for(var i = 0; i < n - 1; i++) {
+            //    var sign = 1;
+            //    for (var j = 0; j < splinesN; j++) {
+            //        uvs[i * (splinesN + 1) * 6 + 6 * j] = sign;
+            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 1] = -sign;
+            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 2] = sign;
+            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 3] = -sign;
+            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 4] = sign;
+            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 5] = -sign;
+            //        sign = -sign;
+            //    }
+            //}
+            //return uvs;
+        }
+
+        private createBlockPoints(points) {
+            var boxes = points.length / (8*3);
+            var res = new Float32Array(boxes * 6 * 2 * 3 * 3);
+            var ids = [
+                0, 3, 1, 2, 1, 3,
+                0, 7, 2, 0, 4, 7,
+                1, 6, 5, 1, 2, 6,
+                0, 1, 5, 0, 5, 4,
+                3, 6, 2, 3, 7, 6,
+                4, 5, 7, 5, 6, 7
+            ];
+            for (var i = 0; i < boxes; i++) {
+                for(var j = 0; j < 6 * 6; j++) {
+                    for (var k = 0; k < 3; k++) {
+                        res[i * 6 * 6 * 3 + j * 3 + k] = points[i * 8 * 3 + ids[j] * 3 + k];
+                    }
+                }
+            }
+            return res;
         }
 
         private createPoints(points, n, splinesN) {
@@ -277,6 +340,15 @@ module game {
                     indicies[next] = next;
                     next += 1;
                 }
+            }
+            return indicies;
+        }
+
+        private createBlockIndicies(n) {
+            var indicies = new Uint16Array(n);
+            console.assert(n <= 65535);
+            for (var i = 0; i < n - 1; i++) {
+                indicies[i] = i;
             }
             return indicies;
         }
@@ -344,11 +416,11 @@ module game {
             return mat4.multiply(pMatrix, vMatrix);
         }
 
-        private setUniformCameraLight(name, x, y, z, intensity, attenuation, ambient) {
-            this.mapShader.uniformF(name + '.position', x, y, z);
-            this.mapShader.uniformF(name + '.intensities', intensity, intensity, intensity);
-            this.mapShader.uniformF(name + '.attenuation', attenuation);
-            this.mapShader.uniformF(name + '.ambientCoefficient', ambient);
+        private setUniformCameraLight(shader, name, x, y, z, intensity, attenuation, ambient) {
+            shader.uniformF(name + '.position', x, y, z);
+            shader.uniformF(name + '.intensities', intensity, intensity, intensity);
+            shader.uniformF(name + '.attenuation', attenuation);
+            shader.uniformF(name + '.ambientCoefficient', ambient);
         }
 
         private preprocessSong (buffer) {
@@ -375,17 +447,17 @@ module game {
             var all_low = [], all_high = [];
             var magnitudes = [];
 
-            var prev_complex = [];
+            var prev_complex = new complex_array.ComplexArray(0);
             for (var i = Math.max(frames_step, W_SIZE), time = 0; i + W_SIZE < channelData.length; i += frames_step, time += STEP) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
                 var complex = new complex_array.ComplexArray(fft_buffer);
                 complex.FFT();
 
-                magnitudes.push(0);
+                magnitudes.push(false);
                 if (isMaximum(prev_complex, complex, THRESH)) {
-                    magnitudes[magnitudes.length - 2] = 0;
-                    magnitudes[magnitudes.length - 1] = 1;
+                    magnitudes[magnitudes.length - 2] = false;
+                    magnitudes[magnitudes.length - 1] = true;
                 }
 
                 var low = 0, high = 0;
@@ -400,14 +472,17 @@ module game {
 
                 all_low.push(low);
                 all_high.push(high);
+                prev_complex = complex;
             }
 
-            this.blockPositions = []
+            this.blockPositions = [];
             magnitudes.map(function(value, i, n) {
-                if (value == 1) {
-                    this.blockPositions.push([i, Math.floor(Math.random() * 5)]); 
+                if (value == true) {
+                    this.blockPositions.push([i, Math.floor(Math.random() * 5)]);
                 }
-            })
+            }, this);
+
+            console.log(this.blockPositions.length);
 
             var max_low = Math.max.apply(Math, all_low);
             var max_high = Math.max.apply(Math, all_high);
@@ -449,7 +524,7 @@ module game {
                 this.song.buffer = songBuffer;
                 this.analyser = audio.context.createAnalyser();
                 this.analyser.fftSize = 64;
-                this.analyser.smoothingTimeConstant = 0.8;
+                this.analyser.smoothingTimeConstant = 0.85;
                 this.song.connect(this.analyser);
                 this.analyser.connect(audio.context.destination);
                 this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
@@ -529,9 +604,6 @@ module game {
                     r = x;
                 }
             }
-
-
-            console.log(x);
             return x;
         }
 
@@ -543,6 +615,7 @@ module game {
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
                 hacks = this.generateHacks(points.length / 3);
 
+            this.sectorsPoints = sectorsPoints;
             this.posBuf.uploadData(points);
             this.colBuf.uploadData(colors);
             this.hackBuf.uploadData(hacks);
@@ -567,6 +640,21 @@ module game {
             ]);
             this.planeIndBuf.uploadData(planeInd);
             this.planeNormBuf.uploadData(this.generateNormals(planePos, planeInd));
+        }
+
+        private uploadBlockBufs() {
+            var keyPointCount = this.keyPoints.length / 3,
+                blockPoints = map.generateBlocks(this.sectorsPoints, this.blockPositions, STRIP_COUNT, [0.5, 0.5, 0.5]),
+                points = this.createBlockPoints(blockPoints),
+                colors = this.createColors(points.length / 3, 0.3, 0.5, 0.7),
+                indicies = this.createBlockIndicies(blockPoints.length / 3),
+                normals = this.generateNormals(points, indicies);
+            console.info(blockPoints);//TODO: remove
+
+            this.blockPosBuf.uploadData(points);
+            this.blockColBuf.uploadData(colors);
+            this.blockNormBuf.uploadData(normals);
+            this.blockIndBuf.uploadData(indicies);
         }
 
         private initCamera() {
@@ -672,7 +760,7 @@ module game {
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
 
             this.mapShader.uniformF('uCameraPosition', this.eye[0], this.eye[1], this.eye[2]);
-            this.setUniformCameraLight('uLight', this.eye[0], this.eye[1], this.eye[2], 2.0, 0.1, 0.5);
+            this.setUniformCameraLight(this.mapShader, 'uLight', this.eye[0], this.eye[1], this.eye[2], 2.0, 0.1, 0.5);
 
             for (var i = 0; i < FREQS_BINS_COUNT; i++) {
                 this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
@@ -713,10 +801,46 @@ module game {
             }
         }
 
+        private renderBlocks() {
+            this.blocksShader.vertexAttribute('aPosition', this.blockPosBuf);
+            this.blocksShader.vertexAttribute('aColor', this.blockColBuf);
+            //this.blocksShader.vertexAttribute('aNormal', this.blockNormBuf);
+
+            this.blocksShader.uniformF('uCameraPosition', this.eye[0], this.eye[1], this.eye[2]);
+            this.setUniformCameraLight(this.blocksShader, 'uLight', this.eye[0], this.eye[1], this.eye[2], 2.0, 0.1, 0.5);
+
+            var leftCameraMtx = this.createCameraMtx(this.eye, this.viewAngleVert, this.lookAt, -EYE_SHIFT),
+                rightCameraMtx = this.createCameraMtx(this.eye, this.viewAngleVert, this.lookAt, EYE_SHIFT);
+            if (this.anaglyph) {
+                gl.clear(gl.DEPTH);
+
+                this.blocksShader.uniformMatrixF("uCameraMtx", leftCameraMtx);
+                gl.colorMask(1, 0, 0, 0);
+                this.blocksShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.blockIndBuf);
+
+                this.blocksShader.uniformMatrixF("uCameraMtx", rightCameraMtx);
+                gl.colorMask(0, 1, 1, 1);
+                gl.clear(gl.DEPTH_BUFFER_BIT);
+                this.blocksShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.blockIndBuf);
+
+                gl.colorMask(1, 1, 1, 1);
+            } else if (this.stereo) {
+                this.blocksShader.uniformMatrixF("uCameraMtx", leftCameraMtx);
+                this.blocksShader.draw(this.canvas.width/2, this.canvas.height, gl.TRIANGLES, this.blockIndBuf, 0);
+
+                this.blocksShader.uniformMatrixF("uCameraMtx", rightCameraMtx);
+                this.blocksShader.draw(this.canvas.width/2, this.canvas.height, gl.TRIANGLES, this.blockIndBuf, this.canvas.width/2);
+            } else {
+                var centerMatrix = this.createCameraMtx(this.eye, this.viewAngleVert, this.lookAt, 0);
+                this.blocksShader.uniformMatrixF('uCameraMtx', centerMatrix);
+                this.blocksShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.blockIndBuf);
+            }
+        }
+
         private renderPlane() {
             this.planeShader.vertexAttribute('aPosition', this.planePosBuf);
             this.planeShader.vertexAttribute('aColor', this.planeColorBuf);
-            this.planeShader.vertexAttribute('aNormal', this.planeNormBuf);
+            //this.planeShader.vertexAttribute('aNormal', this.planeNormBuf);
 
             this.planeShader.uniformF("uCameraPosition", this.eye[0], this.eye[1], this.eye[2]);
             this.planeShader.uniformMatrixF("uModelMtx", this.planeModel);
@@ -795,9 +919,9 @@ module game {
                 var to = Math.floor(this.freqData.length * (i + 1) / FREQS_BINS_COUNT);
                 var freq = 0;
                 for (var j = from; j < to; j++) {
-                    freq = Math.max(freq, this.freqData[j]);
+                    freq += this.freqData[j];
                 }
-                this.freqBins[i] = freq;
+                this.freqBins[i] = freq / (to - from);
             }
         }
 
@@ -809,6 +933,7 @@ module game {
             this.initCamera();
             this.renderBackground();
             this.renderMap();
+            this.renderBlocks();
             this.renderPlane();
             //this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));

@@ -95,6 +95,8 @@ module input {
         A = code('a'),
         S = code('s'),
         D = code('d'),
-        SPACE = code(' ')
+        SPACE = code(' '),
+        Z = code('z'),
+        X = code('x'),
     }
 }
