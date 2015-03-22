@@ -12,19 +12,12 @@ module game {
     var TUBE_RADIUS = 5;
     var SECTOR_ANGLE = Math.PI / 2;
     var CAM_HEIGHT = 5;
-    var CAM_VIEW_DISTANCE = 5;
+    var CAM_VIEW_DISTANCE = 10;
     var CAM_BACK_OFFSET = 1;
 
-    var keyPoints = new Float32Array(Array(3000).join(",").split(",").map((val, idx) => {
-        switch (idx % 3) {
-            case 0:
-                return idx + Math.random() * 2;
-            case 1:
-                return Math.sin(idx / 10);
-            case 2:
-                return 1 + (Math.random() - 0.5) / 2;
-        }
-    }));
+    function complexNorm(real, imag) {
+        return Math.sqrt(real * real + imag * imag);
+    }
 
     export class Game {
         private root:HTMLElement;
@@ -46,6 +39,8 @@ module game {
 
         private htracker:headtrackr.Tracker;
         private head:vec3;
+
+        private keyPoints;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -248,9 +243,59 @@ module game {
             this.mapShader.uniformF(name + '.ambientCoefficient', ambient);
         }
 
+        private preprocessSong (buffer) {
+            var W_SIZE = 1024 * 4;
+            var STEP = 0.1;
+            var MAX_THRESH = 0.7;
+            var STANDART_V = 1;
+            var T = 0.1;
+
+            var channelData = buffer.getChannelData(0);
+            var frames_step = STEP * buffer.sampleRate | 0;
+            
+            var fft_buffer = new Float32Array(W_SIZE * 2);
+            
+            this.keyPoints = [0, 0, 0];
+            var last_point : vec3 = [0, 0, 0];
+            
+            for (var i = frames_step, time = 0; i + W_SIZE < channelData.length; i += frames_step, time++) {
+                for (var j = -W_SIZE; j < W_SIZE; j++)
+                    fft_buffer[W_SIZE + j] = channelData[j + i];
+                var complex = new complex_array.ComplexArray(fft_buffer);
+                complex.FFT();
+
+                var low = 0, high = 0;
+                complex.map(function(value, i, n) {
+                    if (i * 5 < n || i * 5 > 4 * n) {
+                        low += complexNorm(value.real, value.imag);
+                    }
+                    else {
+                        high += complexNorm(value.real, value.imag);
+                    }
+                });
+
+                low /= 150;
+                high /= 70;
+                
+                console.log(low + " " + high);
+                var delta : vec3 = [1, Math.cos(T * (time + high)), T * T * T * time + high - 0.5];
+                delta = vec3.scale(delta, (STANDART_V + low));
+                last_point = vec3.add(last_point, delta);
+
+                this.keyPoints.push(last_point[0])
+                this.keyPoints.push(last_point[1])
+                this.keyPoints.push(last_point[2])
+            }
+
+            console.log("!!!! " + this.keyPoints.length);
+        }
+
         start(songBuffer: AudioBuffer) {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
+            
+            this.preprocessSong(songBuffer);
+
             this.song.buffer = songBuffer;
             this.song.connect(audio.context.destination);
             this.song.start();
@@ -294,8 +339,8 @@ module game {
         }
 
         renderMap() {
-            var keyPointCount = keyPoints.length / 3,
-                sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
+            var keyPointCount = this.keyPoints.length / 3,
+                sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0, 1, 0),
                 indicies = this.createIndiciesLines(keyPointCount, STRIP_COUNT),
@@ -310,11 +355,11 @@ module game {
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
 
-            function getAbsPosition(relPosition) {
+            var getAbsPosition = (relPosition) => {
                 var prevPointIdx = Math.floor(relPosition),
                     nextPointIdx = Math.ceil(relPosition),
-                    prevPoint = util.pickVec3(keyPoints, prevPointIdx),
-                    nextPoint = util.pickVec3(keyPoints, nextPointIdx);
+                    prevPoint = util.pickVec3(this.keyPoints, prevPointIdx),
+                    nextPoint = util.pickVec3(this.keyPoints, nextPointIdx);
                 return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
             }
 
