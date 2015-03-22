@@ -21,7 +21,7 @@ class App {
         }),
         new MainMenuLabel("Or drag and drop mp3 file here"),
         new MainMenuLabel("Press A key for anaglyph"),
-        new MainMenuLabel("Press S key for stereo  ")
+        new MainMenuLabel("Press S key for stereo (OculusRift or so)")
     ];
 
     private ANON_MENU_ITEMS: MainMenuItem[] = [
