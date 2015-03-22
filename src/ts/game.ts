@@ -6,6 +6,7 @@
 module game {
     var C_GAME_CANVAS = "game--canvas";
     var LIGHTS_COUNT = 2;
+    var FREQS_BINS_COUNT = 6;
     var gl;
 
     var STRIP_COUNT = 5;
@@ -30,15 +31,24 @@ module game {
         private posBuf:webgl.ArrayBuffer;
         private normBuf:webgl.ArrayBuffer;
         private colBuf:webgl.ArrayBuffer;
+        private hackBuf:webgl.ArrayBuffer;
         private indBuf:webgl.ElementArrayBuffer;
+
+        private posRectBuf:webgl.ArrayBuffer;
+        private indRectBuf:webgl.ElementArrayBuffer;
 
         private songBuffer;
         private song;
         private songLastOffset;
         private timeLastOffset;
 
+        private analyser;
+        private freqData;
+        private freqBins;
+
         private htracker:headtrackr.Tracker;
         private head:vec3;
+        private faceAngle;
 
         private keyPoints;
 
@@ -55,17 +65,25 @@ module game {
             this.glContext.activate();
             gl = webgl.gl;
 
-            var vert = (<HTMLScriptElement> document.getElementById('map_vshader')).text;
-            var frag = (<HTMLScriptElement> document.getElementById('map_fshader')).text;
+            var vert = (<HTMLScriptElement> document.getElementById('map_vshader')).text
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
+            var frag = (<HTMLScriptElement> document.getElementById('map_fshader')).text
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.mapShader = new webgl.Shader(vert, frag);
-            vert = (<HTMLScriptElement> document.getElementById('lights_vshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString());
-            frag = (<HTMLScriptElement> document.getElementById('lights_fshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString());
+            vert = (<HTMLScriptElement> document.getElementById('lights_vshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString())
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
+            frag = (<HTMLScriptElement> document.getElementById('lights_fshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString())
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.lightShader = new webgl.Shader(vert, frag);
 
             this.posBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.normBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
             this.colBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.hackBuf = new webgl.ArrayBuffer(1, gl.FLOAT);
             this.indBuf = new webgl.ElementArrayBuffer();
+
+            this.posRectBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
+            this.indRectBuf = new webgl.ElementArrayBuffer();
         }
 
         private initInputEvents() {
@@ -99,6 +117,10 @@ module game {
                 this.onHeadMoved(event.x, event.y, event.z);
             });
 
+            document.addEventListener("facetrackingEvent", (event:any) => {
+                this.onFaceLeaned(event.angle);
+            });
+
             this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
             this.htracker.init(ui.$("inputVideo"),ui.$("inputCanvas"));
             this.htracker.start();
@@ -108,6 +130,11 @@ module game {
             this.head = [x, y, z];
         }
 
+        private onFaceLeaned(angle) {
+            this.faceAngle = angle - Math.PI / 2;
+            console.log(this.faceAngle);
+        }
+
         private makeFullscreen() {
             if (this.canvas.width !== this.canvas.clientWidth) {
                 this.canvas.width = this.canvas.clientWidth;
@@ -115,6 +142,16 @@ module game {
             if (this.canvas.height !== this.canvas.clientHeight) {
                 this.canvas.height = this.canvas.clientHeight;
             }
+        }
+
+        private generateHacks(n) {
+            var uvs = new Float32Array(n);
+            for (var i = 0; 3 * i < n; i++) {
+                uvs[i * 3] = 1;
+                uvs[i * 3 + 1] = -1;
+                uvs[i * 3 + 2] = 1;
+            }
+            return uvs;
         }
 
         private createPoints(points, n, splinesN) {
@@ -231,7 +268,7 @@ module game {
         }
 
         private createCameraMtx(eye, angleOfView, lookAt) {
-            var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 100.0),
+            var pMatrix = mat4.perspective(angleOfView, this.canvas.width / this.canvas.height, 0.1, 300.0),
                 vMatrix = mat4.lookAt(eye, lookAt, [0, 0, 1]);
             return mat4.multiply(pMatrix, vMatrix);
         }
@@ -297,10 +334,17 @@ module game {
             this.preprocessSong(songBuffer);
 
             this.song.buffer = songBuffer;
-            this.song.connect(audio.context.destination);
+            this.analyser = audio.context.createAnalyser();
+            this.analyser.fftSize = 64;
+            this.analyser.smoothingTimeConstant = 0.8;
+            this.song.connect(this.analyser);
+            this.analyser.connect(audio.context.destination);
+            this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+            this.freqBins = new Uint8Array(FREQS_BINS_COUNT);
             this.song.start();
             this.songLastOffset = 0;
             this.timeLastOffset = audio.context.currentTime;
+            this.uploadMapBufs();
             this.loop();
         }
 
@@ -334,26 +378,30 @@ module game {
         }
 
         private getShipTilt() {
-            //todo: replace
-            return this.head[0] * 4 * Math.PI/ 180;
+            return this.faceAngle;
         }
 
-        renderMap() {
+        private uploadMapBufs() {
             var keyPointCount = this.keyPoints.length / 3,
-                sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
+                sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
-                colors = this.createColors(points.length / 3, 0, 1, 0),
-                indicies = this.createIndiciesLines(keyPointCount, STRIP_COUNT),
-                normals = this.generateNormals(points, indicies);
+                colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
+                indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
+                normals = this.generateNormals(points, indicies),
+                hacks = this.generateHacks(points.length / 3);
 
             this.posBuf.uploadData(points);
             this.normBuf.uploadData(normals);
             this.colBuf.uploadData(colors);
+            this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
+        }
 
-            this.mapShader.vertexAttribute('aNormal', this.normBuf);
+        private renderMap() {
+            //this.mapShader.vertexAttribute('aNormal', this.normBuf);TODO: fix errors!
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
+            this.mapShader.vertexAttribute('aHack', this.hackBuf);
 
             var getAbsPosition = (relPosition) => {
                 var prevPointIdx = Math.floor(relPosition),
@@ -364,9 +412,9 @@ module game {
             }
 
             var relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointCount,
+                relPosition = relTime * keyPoints.length / 3,
                 absPosition = getAbsPosition(relPosition),
-                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointCount));
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPoints.length / 3));
 
             var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
                 eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
@@ -377,13 +425,17 @@ module game {
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
             this.setUniformCameraLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
 
+            for (var i = 0; i < FREQS_BINS_COUNT; i++) {
+                this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
+            }
+
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
-            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.LINES, this.indBuf);
+            this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
         }
 
         private renderLights() {
-            this.lightShader.vertexAttribute('aPosition', this.posBuf);
+            this.lightShader.vertexAttribute('aPosition', this.posRectBuf);
 
             var screenCorners = new Float32Array([
                 -1, -1, 0,
@@ -391,10 +443,10 @@ module game {
                 1, 1, 0,
                 1, -1, 0
             ]);
-            this.posBuf.uploadData(screenCorners);
-            this.indBuf.uploadData(new Uint16Array([0, 1, 2, 0, 2, 3]));
+            this.posRectBuf.uploadData(screenCorners);
+            this.indRectBuf.uploadData(new Uint16Array([0, 1, 2, 0, 2, 3]));
 
-            this.lightShader.vertexAttribute('aPosition', this.posBuf);
+            this.lightShader.vertexAttribute('aPosition', this.posRectBuf);
 
             var lightPositions = [
                 [-0.5, 0.0],
@@ -405,8 +457,11 @@ module game {
                 [1, 0, 0]
             ];
             for (var i = 0; i < LIGHTS_COUNT; i++) {
-                this.lightShader.uniformF('lightPosition[' + i.toString() + ']', lightPositions[i][0], lightPositions[i][1]);
-                this.lightShader.uniformF('lightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
+                this.lightShader.uniformF('uLightPosition[' + i.toString() + ']', lightPositions[i][0], lightPositions[i][1]);
+                this.lightShader.uniformF('uLightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
+            }
+            for (var i = 0; i < FREQS_BINS_COUNT; i++) {
+                this.lightShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
             }
             this.lightShader.uniformF('uRatio', this.canvas.height/this.canvas.width);
             this.lightShader.uniformF('uTime', this.getAbsoluteTime());
@@ -414,12 +469,27 @@ module game {
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
             gl.enable(gl.BLEND);
             gl.disable(gl.DEPTH_TEST);
-            this.lightShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
+            this.lightShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indRectBuf);
             gl.disable(gl.BLEND);
+        }
+
+        private getFreqs() {
+            this.analyser.getByteFrequencyData(this.freqData);
+            for (var i = 0; i < FREQS_BINS_COUNT; i++) {
+                var from = Math.floor(this.freqData.length * i / FREQS_BINS_COUNT);
+                var to = Math.floor(this.freqData.length * (i + 1) / FREQS_BINS_COUNT);
+                var freq = 0;
+                for (var j = from; j < to; j++) {
+                    freq = Math.max(freq, this.freqData[j]);
+                }
+                this.freqBins[i] = freq;
+            }
         }
 
         private loop() {
             this.makeFullscreen();
+
+            this.getFreqs();
 
             this.renderMap();
             this.renderLights();
