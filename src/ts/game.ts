@@ -437,7 +437,9 @@ module game {
 
             var keyPointsCount = this.keyPoints.length / 3,
                 relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointsCount,
+                relPosition = relTime * keyPointsCount;
+            var relTime = this.getRelativeTime(),
+                relPosition = relTime * this.keyPoints.length / 3,
                 absPosition = getAbsPosition(relPosition),
                 absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointsCount)),
                 look = vec3.direction(absPosition, absTarget, []),
@@ -446,6 +448,7 @@ module game {
                 offPosition = vec3.subtract(absPosition, vec3.scale(look, CAM_BACK_OFFSET)),
                 eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS + CAM_HEIGHT, [])), offPosition),
                 lookAt = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS, [])), absTarget);
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, this.keyPoints.length / 3));
 
             var viewAngleVert = 45;
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
