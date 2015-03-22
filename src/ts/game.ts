@@ -15,6 +15,7 @@ module game {
     var CAM_HEIGHT = 5;
     var CAM_VIEW_DISTANCE = 10;
     var CAM_BACK_OFFSET = 1;
+    var MAX_FACE_TILT = 0.4;
 
     function complexNorm(real, imag) {
         return Math.sqrt(real * real + imag * imag);
@@ -105,9 +106,6 @@ module game {
             };
 
             document.addEventListener("headtrackrStatus", (event:any) => {
-                // if (event.status in supportMessages) {
-                    // var messagep = document.getElementById('gUMMessage');
-                    // messagep.innerHTML = supportMessages[event.status];
                 if (event.status in statusMessages) {
                     console.log(statusMessages[event.status]);
                 }
@@ -132,7 +130,6 @@ module game {
 
         private onFaceLeaned(angle) {
             this.faceAngle = angle - Math.PI / 2;
-            console.log(this.faceAngle);
         }
 
         private makeFullscreen() {
@@ -378,12 +375,15 @@ module game {
         }
 
         private getShipTilt() {
-            return this.faceAngle;
+            return 0;
+            //var sign = this.faceAngle < 0 ? -1 : 1,
+            //    abs = Math.abs(this.faceAngle);
+            //return sign * Math.min(abs, MAX_FACE_TILT) / MAX_FACE_TILT * SECTOR_ANGLE / 2;
         }
 
         private uploadMapBufs() {
             var keyPointCount = this.keyPoints.length / 3,
-                sectorsPoints = map.generateSectionPoints(keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
+                sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
@@ -409,16 +409,19 @@ module game {
                     prevPoint = util.pickVec3(this.keyPoints, prevPointIdx),
                     nextPoint = util.pickVec3(this.keyPoints, nextPointIdx);
                 return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
-            }
+            };
 
-            var relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPoints.length / 3,
+            var keyPointsCount = this.keyPoints.length / 3,
+                relTime = this.getRelativeTime(),
+                relPosition = relTime * keyPointsCount,
                 absPosition = getAbsPosition(relPosition),
-                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPoints.length / 3));
-
-            var offPosition = vec3.add(absPosition, vec3.scale(vec3.direction(absTarget, absPosition, []), CAM_BACK_OFFSET)),
-                eye = vec3.add([0, 0, TUBE_RADIUS + CAM_HEIGHT], offPosition),
-                lookAt = vec3.add([0, 0, TUBE_RADIUS], absTarget);
+                absTarget = getAbsPosition(Math.min(relPosition + CAM_VIEW_DISTANCE, keyPointsCount)),
+                look = vec3.direction(absPosition, absTarget, []),
+                up = vec3.cross(look, vec3.cross([0, 0, 1], look), []),
+                tilt = mat4.rotate(mat4.identity([]), this.getShipTilt(), look),
+                offPosition = vec3.subtract(absPosition, vec3.scale(look, CAM_BACK_OFFSET)),
+                eye = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS + CAM_HEIGHT, [])), offPosition),
+                lookAt = vec3.add(mat4.multiplyVec3(tilt, vec3.scale(up, TUBE_RADIUS, [])), absTarget);
 
             var viewAngleVert = 45;
             this.mapShader.uniformMatrixF('uCameraMtx', this.createCameraMtx(eye, viewAngleVert, lookAt));
