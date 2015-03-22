@@ -32,13 +32,14 @@
     </script>
 
     <script id="map_fshader" type="x-shader/x-fragment">
-        #line 31
+        #line 35
         precision mediump float;
 
-        const float borderThreshold = 0.05;
+        const float borderThreshold = 0.01;
         const vec3 borderColor = vec3(1.0, 0.0, 0.0);
 
         uniform vec3 uCameraPosition;
+        uniform float uFreqBins[FREQ_BINS_COUNT];
 
         uniform struct Light {
            vec3 position;
@@ -67,12 +68,10 @@
 
         void main(void) {
             vec3 linearColor = vec3(0);
-            if (vHack < -1.0 + borderThreshold || vHack > 1.0 - borderThreshold) {
-                gl_FragColor = vec4(borderColor, 1.0);
-                return;
-            }
+            float interactiveBorderThreshold = max(borderThreshold, 0.3 * (uFreqBins[0] - 0.5));
+            float intensity = pow(uFreqBins[0], 3.0) * 0.1 / min(abs(vHack - 1.0), abs(-1.0 - vHack));
             linearColor += applyLight(uLight, vColor, vNormal, vPosition, uCameraPosition-vPosition);
-            gl_FragColor = vec4(linearColor, 1.0);
+            gl_FragColor = vec4(linearColor + borderColor * intensity, 1.0);
         }
     </script>
 
@@ -95,19 +94,20 @@
 
         uniform float uTime;
         uniform float uRatio;
+        uniform float uFreqBins[FREQ_BINS_COUNT];
 
-        uniform vec2 lightPosition[LIGHTS_COUNT];
-        uniform vec3 lightColor[LIGHTS_COUNT];
+        uniform vec2 uLightPosition[LIGHTS_COUNT];
+        uniform vec3 uLightColor[LIGHTS_COUNT];
 
         varying vec3 vPosition;
 
         void main(void) {
             vec4 color = vec4(0.0);
             for (int i = 0; i < LIGHTS_COUNT; i++) {
-                float intencity = 0.5 + sin(uTime) * 1.5;
-                float distance = length((vPosition.xy - lightPosition[i]) * vec2(1.0, uRatio));
+                float intencity = 0.5 + uFreqBins[0] * 1.0;
+                float distance = length((vPosition.xy - uLightPosition[i]) * vec2(1.0, uRatio));
                 float attenuation = 1.0/(1.0 + 100.0 * distance + 100.0 * distance * distance);
-                color += intencity * vec4(attenuation, attenuation, attenuation, 1.0 - transparency) * vec4(lightColor[i], 1.0);
+                color += intencity * vec4(attenuation, attenuation, attenuation, 1.0 - transparency) * vec4(uLightColor[i], 1.0);
             }
             gl_FragColor = color;
         }

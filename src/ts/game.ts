@@ -6,6 +6,7 @@
 module game {
     var C_GAME_CANVAS = "game--canvas";
     var LIGHTS_COUNT = 2;
+    var FREQS_BINS_COUNT = 6;
     var gl;
 
     var STRIP_COUNT = 5;
@@ -48,6 +49,10 @@ module game {
         private songLastOffset;
         private timeLastOffset;
 
+        private analyser;
+        private freqData;
+        private freqBins;
+
         private htracker:headtrackr.Tracker;
         private head:vec3;
         private faceAngle;
@@ -65,11 +70,15 @@ module game {
             this.glContext.activate();
             gl = webgl.gl;
 
-            var vert = (<HTMLScriptElement> document.getElementById('map_vshader')).text;
-            var frag = (<HTMLScriptElement> document.getElementById('map_fshader')).text;
+            var vert = (<HTMLScriptElement> document.getElementById('map_vshader')).text
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
+            var frag = (<HTMLScriptElement> document.getElementById('map_fshader')).text
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.mapShader = new webgl.Shader(vert, frag);
-            vert = (<HTMLScriptElement> document.getElementById('lights_vshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString());
-            frag = (<HTMLScriptElement> document.getElementById('lights_fshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString());
+            vert = (<HTMLScriptElement> document.getElementById('lights_vshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString())
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
+            frag = (<HTMLScriptElement> document.getElementById('lights_fshader')).text.split('LIGHTS_COUNT').join(LIGHTS_COUNT.toString())
+                .split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.lightShader = new webgl.Shader(vert, frag);
 
             this.posBuf = new webgl.ArrayBuffer(3, gl.FLOAT);
@@ -280,7 +289,13 @@ module game {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
             this.song.buffer = songBuffer;
-            this.song.connect(audio.context.destination);
+            this.analyser = audio.context.createAnalyser();
+            this.analyser.fftSize = 64;
+            this.analyser.smoothingTimeConstant = 0.8;
+            this.song.connect(this.analyser);
+            this.analyser.connect(audio.context.destination);
+            this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+            this.freqBins = new Uint8Array(FREQS_BINS_COUNT);
             this.song.start();
             this.songLastOffset = 0;
             this.timeLastOffset = audio.context.currentTime;
@@ -365,6 +380,10 @@ module game {
             this.mapShader.uniformF('uCameraPosition', eye[0], eye[1], eye[2]);
             this.setUniformCameraLight('uLight', eye[0], eye[1], eye[2], 2.0, 0.1, 0.5);
 
+            for (var i = 0; i < FREQS_BINS_COUNT; i++) {
+                this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
+            }
+
             gl.enable(gl.DEPTH_TEST);
             gl.clear(gl.DEPTH | gl.COLOR);
             this.mapShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indBuf);
@@ -393,8 +412,11 @@ module game {
                 [1, 0, 0]
             ];
             for (var i = 0; i < LIGHTS_COUNT; i++) {
-                this.lightShader.uniformF('lightPosition[' + i.toString() + ']', lightPositions[i][0], lightPositions[i][1]);
-                this.lightShader.uniformF('lightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
+                this.lightShader.uniformF('uLightPosition[' + i.toString() + ']', lightPositions[i][0], lightPositions[i][1]);
+                this.lightShader.uniformF('uLightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
+            }
+            for (var i = 0; i < FREQS_BINS_COUNT; i++) {
+                this.lightShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
             }
             this.lightShader.uniformF('uRatio', this.canvas.height/this.canvas.width);
             this.lightShader.uniformF('uTime', this.getAbsoluteTime());
@@ -406,8 +428,23 @@ module game {
             gl.disable(gl.BLEND);
         }
 
+        private getFreqs() {
+            this.analyser.getByteFrequencyData(this.freqData);
+            for (var i = 0; i < FREQS_BINS_COUNT; i++) {
+                var from = Math.floor(this.freqData.length * i / FREQS_BINS_COUNT);
+                var to = Math.floor(this.freqData.length * (i + 1) / FREQS_BINS_COUNT);
+                var freq = 0;
+                for (var j = from; j < to; j++) {
+                    freq = Math.max(freq, this.freqData[j]);
+                }
+                this.freqBins[i] = freq;
+            }
+        }
+
         private loop() {
             this.makeFullscreen();
+
+            this.getFreqs();
 
             this.renderMap();
             this.renderLights();
