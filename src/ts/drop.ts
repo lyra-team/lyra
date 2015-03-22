@@ -1,6 +1,6 @@
 ///<reference path="ui.ts"/>
 
-var DROP_OVERLAY_VISIBLE = 'dropOverlay-visible';
+var OVERLAY_VISIBLE = 'overlay-visible';
 
 class DropOverlay {
     private root: HTMLElement;
@@ -22,11 +22,11 @@ class DropOverlay {
     }
 
     private show() {
-        this.root.classList.add(DROP_OVERLAY_VISIBLE);
+        this.root.classList.add(OVERLAY_VISIBLE);
     }
 
     private hide() {
-        this.root.classList.remove(DROP_OVERLAY_VISIBLE);
+        this.root.classList.remove(OVERLAY_VISIBLE);
     }
 
     private onDragStart(evt) {
