@@ -310,14 +310,14 @@ module game {
 
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
-            var STEP = 0.1;
+            var STEP = 0.05;
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
             var STANDARD_LOW = 3.5;
-            var STANDARD_HIGH = 5;
-            var T = 0.1;
+            var STANDARD_HIGH = 3.5;
+            var T = 0.5;
             var Z = 0.5;
-            var Y = 2;
+            var Y = 1;
             
             var channelData = buffer.getChannelData(0);
             var frames_step = STEP * buffer.sampleRate | 0;
@@ -358,8 +358,7 @@ module game {
                 var high = all_high[i] / max_high * STANDARD_HIGH;
                 var time = i * STEP;
 
-                var delta : vec3 = [1, Y * Math.cos(T * (time + high)), Z * high];
-
+                var delta : vec3 = [1.2, Y * Math.cos(T * (time + high)), Z * (-2 + high)];
                 delta = vec3.scale(delta, (STANDART_V + low));
                 last_point = vec3.add(last_point, delta);
 
