@@ -308,9 +308,13 @@ module game {
             var W_SIZE = 1024 * 4;
             var STEP = 0.1;
             var MAX_THRESH = 0.7;
-            var STANDART_V = 1;
+            var STANDART_V = 0.1;
+            var STANDARD_LOW = 3.5;
+            var STANDARD_HIGH = 5;
             var T = 0.1;
-
+            var Z = 0.5;
+            var Y = 2;
+            
             var channelData = buffer.getChannelData(0);
             var frames_step = STEP * buffer.sampleRate | 0;
 
@@ -318,17 +322,16 @@ module game {
 
             this.keyPoints = [0, 0, 0];
             var last_point : vec3 = [0, 0, 0];
-            //var all_low = [], all_high = []
-            var low = 0, high = 0;
+            var all_low = [], all_high = []
 
-            for (var i = frames_step, time = 0; i + W_SIZE < channelData.length; i += frames_step, time++) {
+            for (var i = Math.max(frames_step, W_SIZE), time = 0; i + W_SIZE < channelData.length; i += frames_step, time += STEP) {
                 for (var j = -W_SIZE; j < W_SIZE; j++)
                     fft_buffer[W_SIZE + j] = channelData[j + i];
                 var complex = new complex_array.ComplexArray(fft_buffer);
                 complex.FFT();
 
                 var low = 0, high = 0;
-                complex.map(function(value, i, n) {
+                complex.map(function (value, i, n) {
                     if (i * 5 < n || i * 5 > 4 * n) {
                         low += complexNorm(value.real, value.imag);
                     }
@@ -337,13 +340,22 @@ module game {
                     }
                 });
 
-                //low += 
+                all_low.push(low);
+                all_high.push(high);
+            }
 
-                low /= 150;
-                high /= 70;
+            var max_low = Math.max.apply(Math, all_low);
+            var max_high = Math.max.apply(Math, all_high);
 
-                console.log(low + " " + high);
-                var delta : vec3 = [1, Math.cos(T * (time + high)), T * T * T * time + high - 0.5];
+            console.log(max_low, max_high);
+
+            for (var i = 0; i < all_low.length; i++) {
+                var low = all_low[i] / max_low * STANDARD_LOW;
+                var high = all_high[i] / max_high * STANDARD_HIGH;
+                var time = i * STEP;
+
+                var delta : vec3 = [1, Y * Math.cos(T * (time + high)), Z * high];
+
                 delta = vec3.scale(delta, (STANDART_V + low));
                 last_point = vec3.add(last_point, delta);
 
