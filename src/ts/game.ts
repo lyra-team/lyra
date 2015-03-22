@@ -353,7 +353,7 @@ module game {
         }
 
         private renderMap() {
-            //this.mapShader.vertexAttribute('aNormal', this.normBuf);TODO: fix errors!
+            this.mapShader.vertexAttribute('aNormal', this.normBuf);
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
