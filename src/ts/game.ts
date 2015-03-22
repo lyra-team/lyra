@@ -412,18 +412,15 @@ module game {
                 points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
                 colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
                 indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
-                normals = this.generateNormals(points, indicies),
                 hacks = this.generateHacks(points.length / 3);
 
             this.posBuf.uploadData(points);
-            this.normBuf.uploadData(normals);
             this.colBuf.uploadData(colors);
             this.hackBuf.uploadData(hacks);
             this.indBuf.uploadData(indicies);
         }
 
         private renderMap() {
-            this.mapShader.vertexAttribute('aNormal', this.normBuf);
             this.mapShader.vertexAttribute('aPosition', this.posBuf);
             this.mapShader.vertexAttribute('aColor', this.colBuf);
             this.mapShader.vertexAttribute('aHack', this.hackBuf);
@@ -455,6 +452,7 @@ module game {
             for (var i = 0; i < FREQS_BINS_COUNT; i++) {
                 this.mapShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
             }
+            this.mapShader.uniformF('uTime', this.getAbsoluteTime());
 
             if (this.anaglyph) {
                 gl.enable(gl.DEPTH_TEST);
