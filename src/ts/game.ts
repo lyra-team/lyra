@@ -513,24 +513,28 @@ module game {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
 
-            this.preprocessSong(songBuffer);
-            this.eye = [0, 0, 0];
-            this.lookAt = [0, 0, 0];
+            ui.$('loadOverlay').classList.add('overlay-visible');
+            setTimeout(() => {
+                this.preprocessSong(songBuffer);
+                ui.$('loadOverlay').classList.remove('overlay-visible');
 
-            this.song.buffer = songBuffer;
-            this.analyser = audio.context.createAnalyser();
-            this.analyser.fftSize = 64;
-            this.analyser.smoothingTimeConstant = 0.85;
-            this.song.connect(this.analyser);
-            this.analyser.connect(audio.context.destination);
-            this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
-            this.freqBins = new Uint8Array(FREQS_BINS_COUNT);
-            this.song.start();
-            this.songLastOffset = 0;
-            this.timeLastOffset = audio.context.currentTime;
-            this.uploadMapBufs();
-            this.uploadBlockBufs();
-            this.loop();
+                this.eye = [0, 0, 0];
+                this.lookAt = [0, 0, 0];
+
+                this.song.buffer = songBuffer;
+                this.analyser = audio.context.createAnalyser();
+                this.analyser.fftSize = 64;
+                this.analyser.smoothingTimeConstant = 0.85;
+                this.song.connect(this.analyser);
+                this.analyser.connect(audio.context.destination);
+                this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+                this.freqBins = new Uint8Array(FREQS_BINS_COUNT);
+                this.song.start();
+                this.songLastOffset = 0;
+                this.timeLastOffset = audio.context.currentTime;
+                this.uploadMapBufs();
+                this.loop();
+            }, 100);
         }
 
         private isPaused() {
