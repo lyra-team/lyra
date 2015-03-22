@@ -123,6 +123,39 @@
             gl_FragColor = color;
         }
     </script>
+
+    <script id="background_vshader" type="x-shader/x-vertex">
+        attribute vec3 aPosition;
+
+        varying vec3 vPosition;
+
+        void main(void) {
+            vPosition = aPosition;
+            gl_Position = vec4(aPosition, 1.0);
+        }
+    </script>
+
+    <script id="background_fshader" type="x-shader/x-fragment">
+        #line 139
+        precision mediump float;
+
+        uniform float uTime;
+        uniform float uRatio;
+        uniform float uFreqBins[FREQ_BINS_COUNT];
+        uniform vec2 uCenter;
+
+        varying vec3 vPosition;
+
+        void main(void) {
+            vec3 c1 = vec3(0.2, 0.0, 0.6);
+            vec3 c2 = vec3(0.2, 0.2, 0.0);
+            vec2 xy = vPosition.xy;
+            xy.y *= uRatio;
+            float r = length(xy-uCenter);
+            vec3 color = r * c1;
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
 </head>
 <body>
 	<div class="game">
