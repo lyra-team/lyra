@@ -177,22 +177,36 @@
         varying vec3 vPosition;
         varying vec3 vNormal;
 
-        vec3 applyLight(Light light, vec3 surfaceColor, vec3 normal, vec3 surfacePos, vec3 surfaceToCamera) {
-            vec3 lightDirection = normalize(surfacePos - light.position);
-            float distanceToLight = length(light.position - surfacePos);
-            float ambient = min(5.0 / distanceToLight / distanceToLight, 0.2);
-            float diffuse = max(0.0, dot(normal, -lightDirection));
-            float specular = 0.0;
-            float attenuation = 1.0 / (1.0 + 0.03 * pow(length(light.position - surfacePos), 3.0));
-            vec3 linearColor = (ambient + attenuation * (specular)) * surfaceColor;
-            vec3 gamma = vec3(1.0/2.2);
-            vec3 color = pow(linearColor, gamma);
-            return color;
+        vec3 correctGamma(vec3 color) {
+            return pow(color, vec3(1.0 / 2.2));
+        }
+
+        vec3 applyLight(Light light, vec3 surfaceColor, vec3 normal, vec3 surfacePosition) {
+            vec3 toLight = light.position - surfacePosition;
+            vec3 toLightDirection = normalize(toLight);
+            float toLightDistance = length(toLight);
+
+            vec3 toCamera = uCameraPosition - surfacePosition;
+            vec3 toCameraDirection = normalize(toCamera);
+
+            vec3 reflectedColor = surfaceColor * light.intensities;
+            float attenuation = light.attenuation != 0.0
+                                        ? 1.0 / (1.0 + light.attenuation * pow(toLightDistance, 2.0))
+                                        : 1.0;
+
+            // Ambient component
+            vec3 ambient = light.ambientCoefficient * reflectedColor;
+
+            // Diffuse component
+            float diffuseCoefficient = max(0.0, dot(normal, toLightDirection));
+            vec3 diffuse = diffuseCoefficient * reflectedColor;
+
+            return correctGamma(ambient + attenuation * diffuse);
         }
 
         void main(void) {
-            vec3 linearColor = applyLight(uLight, vColor, vNormal, vPosition, uCameraPosition - vPosition);
-            gl_FragColor = vec4(vec3(0.0, 0.0, 0.3), 1.0);
+            vec3 linearColor = applyLight(uLight, vColor, vNormal, vPosition);
+            gl_FragColor = vec4(linearColor, 1.0);
         }
     </script>
 

@@ -37,7 +37,7 @@ module game {
                 cnt++;
         }
 
-        console.log(cnt + " " + current.length + " " + current.length * thresh);
+        //console.log(cnt + " " + current.length + " " + current.length * thresh);
 
         return cnt >= current.length * thresh;
     }
@@ -125,7 +125,7 @@ module game {
             vert = (<HTMLScriptElement> document.getElementById('background_vshader')).text.split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             frag = (<HTMLScriptElement> document.getElementById('background_fshader')).text.split('FREQ_BINS_COUNT').join(FREQS_BINS_COUNT.toString());
             this.backgroundShader = new webgl.Shader(vert, frag);
-            
+
             vert = (<HTMLScriptElement> ui.$('plane_vshader')).text;
             frag = (<HTMLScriptElement> ui.$('plane_fshader')).text;
             this.planeShader = new webgl.Shader(vert, frag);
@@ -267,12 +267,12 @@ module game {
             var boxes = points.length / (8*3);
             var res = new Float32Array(boxes * 6 * 2 * 3 * 3);
             var ids = [
-                0, 3, 1, 2, 1, 3,
-                0, 7, 2, 0, 4, 7,
-                1, 6, 5, 1, 2, 6,
-                0, 1, 5, 0, 5, 4,
-                3, 6, 2, 3, 7, 6,
-                4, 5, 7, 5, 6, 7
+                0, 1, 3, 2, 3, 1,
+                0, 3, 7, 0, 7, 4,
+                1, 5, 6, 1, 6, 2,
+                0, 5, 1, 0, 4, 5,
+                3, 2, 6, 3, 6, 7,
+                4, 7, 5, 5, 7, 6
             ];
             for (var i = 0; i < boxes; i++) {
                 for(var j = 0; j < 6 * 6; j++) {
@@ -389,19 +389,15 @@ module game {
         private generateNormals(points, indicies) {
             var normals = new Float32Array(points.length);
             for (var i = 0; i < indicies.length / 3; i++) {
-                var a = new Float32Array([points[3 * i], points[3 * i + 1], points[3 * i + 2]]);
-                var b = new Float32Array([points[3 * (i + 1)], points[3 * (i + 1) + 1], points[3 * (i + 1) + 2]]);
-                var c = new Float32Array([points[3 * (i + 2)], points[3 * (i + 2) + 1], points[3 * (i + 2) + 2]]);
-                var ab = new Float32Array(3);
-                vec3.subtract(b, a, ab);
-                var ac = new Float32Array(3);
-                vec3.subtract(c, a, ac);
-                var normal = vec3.create();
-                vec3.cross(ab, ac, normal);
-                normal = vec3.normalize(normal);
-                normals[3 * i] = normal[0];
-                normals[3 * i + 1] = normal[1];
-                normals[3 * i + 2] = normal[2];
+                var a = util.pickVec3(points, i * 3);
+                var b = util.pickVec3(points, i * 3 + 1);
+                var c = util.pickVec3(points, i * 3 + 2);
+                var ab = vec3.subtract(b, a, []);
+                var ac = vec3.subtract(c, a, []);
+                var normal = vec3.normalize(vec3.cross(ab, ac, []));
+                util.putVec3(normals, 3 * i, normal);
+                util.putVec3(normals, 3 * i + 1, normal);
+                util.putVec3(normals, 3 * i + 2, normal);
             }
             return normals;
         }
@@ -425,7 +421,7 @@ module game {
 
         private preprocessSong (buffer) {
             var W_SIZE = 1024 * 4;
-            var STEP = 0.2;
+            var STEP = 0.05;
             var STEP_CORRECTION = 20 * STEP;
             var MAX_THRESH = 0.7;
             var STANDART_V = 0.1;
@@ -478,11 +474,12 @@ module game {
             this.blockPositions = [];
             magnitudes.map(function(value, i, n) {
                 if (value == true) {
-                    this.blockPositions.push([i, Math.floor(Math.random() * 5)]);
+                    this.blockPositions.push([i, Math.floor(Math.random() * STRIP_COUNT)]);
                 }
             }, this);
 
-            console.log(this.blockPositions.length);
+            console.log('magnitudes', magnitudes);
+            // console.log(this.blockPositions.length);
 
             var max_low = Math.max.apply(Math, all_low);
             var max_high = Math.max.apply(Math, all_high);
@@ -507,6 +504,8 @@ module game {
                 this.keyPoints.push(last_point[1])
                 this.keyPoints.push(last_point[2])
             }
+
+            console.log('keyPoints', this.keyPoints.length);
         }
 
         start(songBuffer: AudioBuffer) {
@@ -647,8 +646,8 @@ module game {
             var keyPointCount = this.keyPoints.length / 3,
                 blockPoints = map.generateBlocks(this.sectorsPoints, this.blockPositions, STRIP_COUNT, [1.0, 1.0, 1.0]),
                 points = this.createBlockPoints(blockPoints),
-                colors = this.createColors(points.length / 3, 0.3, 0.5, 0.7),
-                indicies = this.createBlockIndicies(blockPoints.length / 3),
+                colors = this.createColors(points.length / 3, 0.2, 0.2, 1.0),
+                indicies = this.createBlockIndicies(points.length / 3),
                 normals = this.generateNormals(points, indicies);
 
             this.blockPosBuf.uploadData(points);
@@ -803,11 +802,11 @@ module game {
 
         private renderBlocks() {
             this.blocksShader.vertexAttribute('aPosition', this.blockPosBuf);
-            //this.blocksShader.vertexAttribute('aColor', this.blockColBuf);
-            //this.blocksShader.vertexAttribute('aNormal', this.blockNormBuf);
+            this.blocksShader.vertexAttribute('aColor', this.blockColBuf);
+            this.blocksShader.vertexAttribute('aNormal', this.blockNormBuf);
 
             this.blocksShader.uniformF('uCameraPosition', this.eye[0], this.eye[1], this.eye[2]);
-            this.setUniformCameraLight(this.blocksShader, 'uLight', this.eye[0], this.eye[1], this.eye[2], 2.0, 0.1, 0.5);
+            this.setUniformCameraLight(this.blocksShader, 'uLight', this.eye[0], this.eye[1], this.eye[2], 2.0, 0.01, 0.2);
 
             var leftCameraMtx = this.createCameraMtx(this.eye, this.viewAngleVert, this.lookAt, -EYE_SHIFT),
                 rightCameraMtx = this.createCameraMtx(this.eye, this.viewAngleVert, this.lookAt, EYE_SHIFT);

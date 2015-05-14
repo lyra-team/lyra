@@ -52,22 +52,20 @@ module map {
             var stripCenter = av(topRight, bottomLeft),
                 dx = vec3.scale(vec3.direction(av(topLeft, topRight), av(bottomLeft, bottomRight)), blockSize[0] / 2),
                 dy = vec3.scale(vec3.direction(av(topRight, bottomRight), av(topLeft, bottomLeft)), blockSize[1] / 2),
-                dz = vec3.scale(vec3.normalize(vec3.cross(dx, dy)), blockSize[2]),
+                dz = vec3.scale(vec3.normalize(vec3.cross(dx, dy, [])), blockSize[2]),
 
                 dxdy = vec3.add(dx, dy, []),
-                dxmdy = vec3.subtract(dx, dy, []),
-                dxdydz = vec3.add(dxdy, dz, []),
-                dxmdydz = vec3.add(dxmdy, dz, []);
+                dxmdy = vec3.subtract(dx, dy, []);
 
             util.putVec3(result, idx * 8, vec3.add(stripCenter, dxdy, []));
             util.putVec3(result, idx * 8 + 1, vec3.add(stripCenter, dxmdy, []));
             util.putVec3(result, idx * 8 + 2, vec3.subtract(stripCenter, dxdy, []));
             util.putVec3(result, idx * 8 + 3, vec3.subtract(stripCenter, dxmdy, []));
 
-            util.putVec3(result, idx * 8 + 4, vec3.add(stripCenter, dxdydz, []));
-            util.putVec3(result, idx * 8 + 5, vec3.add(stripCenter, dxmdydz, []));
-            util.putVec3(result, idx * 8 + 6, vec3.subtract(stripCenter, dxdydz, []));
-            util.putVec3(result, idx * 8 + 7, vec3.subtract(stripCenter, dxmdydz, []));
+            for (var i = 0; i < 4; ++i) {
+                var v = util.pickVec3(result, idx * 8 + i);
+                util.putVec3(result, idx * 8 + 4 + i, vec3.add(v, dz, []));
+            }
         });
         return result;
     }
