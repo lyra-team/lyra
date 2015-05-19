@@ -15,6 +15,7 @@ module input {
         private keyboard: KeyboardState = {};
         private downHandlers: KeyHandlerMap = {};
         private upHandlers: KeyHandlerMap = {};
+        private whileDownHandlers: KeyHandlerMap = {};
         private attachedTo: HTMLElement;
         private eventListeners: {[type: string]: (Event) => any};
 
@@ -23,6 +24,11 @@ module input {
                 "keydown": this.onKeyDown.bind(this),
                 "keyup": this.onKeyUp.bind(this)
             };
+            setInterval(() => {
+                Object.getOwnPropertyNames(this.keyboard).forEach((key) => {
+                    InputHandler.fire(this.whileDownHandlers, <Key> +key);
+                });
+            }, 20);
         }
 
         private static on(map: KeyHandlerMap, key: Key, handler: KeyHandler) {
@@ -50,7 +56,7 @@ module input {
         private onKeyUp(evt) {
             var key = evt.keyCode;
             if (this.keyboard[key]) {
-                this.keyboard[key] = false;
+                delete this.keyboard[key];
                 if (InputHandler.fire(this.upHandlers, key)) {
                     evt.preventDefault();
                 }
@@ -59,6 +65,10 @@ module input {
 
         onDown(key: Key, handler: KeyHandler) {
             InputHandler.on(this.downHandlers, key, handler);
+        }
+
+        whileDown(key: Key, handler: KeyHandler) {
+            InputHandler.on(this.whileDownHandlers, key, handler);
         }
 
         onUp(key: Key, handler: KeyHandler) {
@@ -98,5 +108,7 @@ module input {
         SPACE = code(' '),
         Z = code('z'),
         X = code('x'),
+        LEFT_ARROW = 37,
+        RIGHT_ARROW = 39
     }
 }

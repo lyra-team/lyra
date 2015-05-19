@@ -17,6 +17,7 @@ module game {
     var CAM_VIEW_DISTANCE = 20;
     var CAM_TARGET_HEIGHT = 3;
     var CAM_BACK_OFFSET = 10;
+    var TILT_STEP = 0.03;
     var MAX_FACE_TILT = 0.35;
     var MAX_HEAD_SHIFT = 15;
     var ANGLE_ALPHA = 0.1;
@@ -84,6 +85,7 @@ module game {
         private htracker:headtrackr.Tracker;
         private head:vec3 = [0, 0, 0];
         private faceAngle = 0;
+        private tiltAngle = 0;
 
         private planeModel;
         private eye;
@@ -185,46 +187,54 @@ module game {
                 console.info(EYE_SHIFT);
                 return true;
             });
-
-
-            var statusMessages = {
-                "whitebalance" : "checking for stability of camera whitebalance",
-                "detecting" : "Detecting face",
-                "hints" : "Hmm. Detecting the face is taking a long time",
-                "redetecting" : "Lost track of face, redetecting",
-                "lost" : "Lost track of face",
-                "found" : "Tracking face"
-            };
-
-            document.addEventListener("headtrackrStatus", (event:any) => {
-                if (event.status in statusMessages) {
-                    console.log(statusMessages[event.status]);
-                }
-            }, true);
-
-            document.addEventListener("headtrackingEvent", (event:any) => {
-                this.onHeadMoved(event.x, event.y, event.z);
+            handler.whileDown(input.Key.RIGHT_ARROW, () => {
+                this.tiltAngle = Math.max(-SECTOR_ANGLE / 2, this.tiltAngle - TILT_STEP);
+                return true;
+            });
+            handler.whileDown(input.Key.LEFT_ARROW, () => {
+                this.tiltAngle = Math.min(SECTOR_ANGLE / 2, this.tiltAngle + TILT_STEP);
+                return true;
             });
 
-            document.addEventListener("facetrackingEvent", (event:any) => {
-                this.onFaceLeaned(event.angle);
-            });
 
-            this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
-            this.htracker.init(ui.$("inputVideo"), ui.$("inputCanvas"));
-            this.htracker.start();
+            //var statusMessages = {
+            //    "whitebalance" : "checking for stability of camera whitebalance",
+            //    "detecting" : "Detecting face",
+            //    "hints" : "Hmm. Detecting the face is taking a long time",
+            //    "redetecting" : "Lost track of face, redetecting",
+            //    "lost" : "Lost track of face",
+            //    "found" : "Tracking face"
+            //};
+            //
+            //document.addEventListener("headtrackrStatus", (event:any) => {
+            //    if (event.status in statusMessages) {
+            //        console.log(statusMessages[event.status]);
+            //    }
+            //}, true);
+            //
+            //document.addEventListener("headtrackingEvent", (event:any) => {
+            //    this.onHeadMoved(event.x, event.y, event.z);
+            //});
+            //
+            //document.addEventListener("facetrackingEvent", (event:any) => {
+            //    this.onFaceLeaned(event.angle);
+            //});
+            //
+            //this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
+            //this.htracker.init(ui.$("inputVideo"), ui.$("inputCanvas"));
+            //this.htracker.start();
         }
 
-        private onHeadMoved(x, y, z) {
-            var alpha = X_ALPHA;
-            this.head = vec3.add(vec3.scale([x, y, z], alpha), vec3.scale(this.head, 1 - alpha));
-        }
-
-        private onFaceLeaned(angle) {
-            var alpha = ANGLE_ALPHA;
-            angle -= Math.PI / 2;
-            this.faceAngle = angle * alpha + this.faceAngle * (1 - alpha);
-        }
+        //private onHeadMoved(x, y, z) {
+        //    var alpha = X_ALPHA;
+        //    this.head = vec3.add(vec3.scale([x, y, z], alpha), vec3.scale(this.head, 1 - alpha));
+        //}
+        //
+        //private onFaceLeaned(angle) {
+        //    var alpha = ANGLE_ALPHA;
+        //    angle -= Math.PI / 2;
+        //    this.faceAngle = angle * alpha + this.faceAngle * (1 - alpha);
+        //}
 
         private makeFullscreen() {
             if (this.canvas.width !== this.canvas.clientWidth) {
@@ -567,45 +577,46 @@ module game {
         }
 
         private getShipTilt() {
-            var signA = this.faceAngle < 0 ? -1 : 1,
-               absA = Math.abs(this.faceAngle);
-            var faceLean = (signA * Math.min(absA, MAX_FACE_TILT) + MAX_FACE_TILT) /
-                    (2 * MAX_FACE_TILT);
-
-            var signX = this.head[0] < 0 ? -1 : 1,
-               absX = Math.abs(this.head[0]);
-            var headShift = (-signX * Math.min(absX, MAX_HEAD_SHIFT) + MAX_HEAD_SHIFT) /
-                    (2 * MAX_HEAD_SHIFT);
-
-            var p = (2 * faceLean + 3 * headShift) / 5;
-
-            return this.solveAngle(p);
+            return this.tiltAngle;
+            //var signA = this.faceAngle < 0 ? -1 : 1,
+            //   absA = Math.abs(this.faceAngle);
+            //var faceLean = (signA * Math.min(absA, MAX_FACE_TILT) + MAX_FACE_TILT) /
+            //        (2 * MAX_FACE_TILT);
+            //
+            //var signX = this.head[0] < 0 ? -1 : 1,
+            //   absX = Math.abs(this.head[0]);
+            //var headShift = (-signX * Math.min(absX, MAX_HEAD_SHIFT) + MAX_HEAD_SHIFT) /
+            //        (2 * MAX_HEAD_SHIFT);
+            //
+            //var p = (2 * faceLean + 3 * headShift) / 5;
+            //
+            //return this.solveAngle(p);
         }
 
-        private solveAngle(p) {
-            var a = SECTOR_ANGLE * 2.5 / STRIP_COUNT;
-            var b = 1 / (2 * a);
-            var alpha = STICKING_ALPHA;
-
-            var A = a * alpha / Math.PI;
-            var B = b;
-            var C = p - 0.5;
-            var w = 5 * Math.PI / a;
-
-            var l = -a;
-            var r = a;
-            var it = 0;
-            while (it < 100 && r - l > Math.PI / 500) {
-                var x = (l + r) / 2;
-                var y = A * Math.sin(w * x) + B * x;
-                if (y < C) {
-                    l = x;
-                } else {
-                    r = x;
-                }
-            }
-            return x;
-        }
+        //private solveAngle(p) {
+        //    var a = SECTOR_ANGLE * 2.5 / STRIP_COUNT;
+        //    var b = 1 / (2 * a);
+        //    var alpha = STICKING_ALPHA;
+        //
+        //    var A = a * alpha / Math.PI;
+        //    var B = b;
+        //    var C = p - 0.5;
+        //    var w = 5 * Math.PI / a;
+        //
+        //    var l = -a;
+        //    var r = a;
+        //    var it = 0;
+        //    while (it < 100 && r - l > Math.PI / 500) {
+        //        var x = (l + r) / 2;
+        //        var y = A * Math.sin(w * x) + B * x;
+        //        if (y < C) {
+        //            l = x;
+        //        } else {
+        //            r = x;
+        //        }
+        //    }
+        //    return x;
+        //}
 
         private uploadMapBufs() {
             var keyPointCount = this.keyPoints.length / 3,
