@@ -111,6 +111,8 @@ module game {
         private indiciesBB;
         private normalsBB;
 
+        private lastBufsUpdatedT = 0;
+
         private anaglyph = false;
         private stereo = false;
 
@@ -1034,25 +1036,43 @@ module game {
             }
         }
 
+        private trianglesChunkCount = 10239;
+
         private calcTrianglesOffset(trianglesCount) {
             var t = this.getRelativeTime();
-            var trianglesToShow = Math.min(2391, trianglesCount);
+            var trianglesToShow = Math.min(this.trianglesChunkCount, trianglesCount);
             var offset = Math.round(trianglesCount*t-trianglesToShow*0.5);
             return this.clamp(offset, 0, trianglesCount-1);
         }
 
         private calcTrianglesTill(trianglesCount) {
             var t = this.getRelativeTime();
-            var trianglesToShow = Math.min(2391, trianglesCount);
+            var trianglesToShow = Math.min(this.trianglesChunkCount, trianglesCount);
             var till = Math.round(trianglesCount*t+trianglesToShow*0.5);
             return this.clamp(till, 1, trianglesCount);
+        }
+
+        private isTimeToUpdateBufs(trianglesCount) {
+            var t = this.getRelativeTime();
+            var oldT = this.lastBufsUpdatedT;
+            if (oldT == 0) {
+                return true;
+            } else if (trianglesCount*(t-oldT) > 0.25*this.trianglesChunkCount) {
+                return true;
+            } else {
+                return false;
+            }
         }
 
         private updateBufs() {
             var mapTri = this.indiciesB.length/3;
             var blocksTri = this.indiciesBB.length/3;
-            this.uploadMapBufs(this.calcTrianglesOffset(mapTri), this.calcTrianglesTill(mapTri));
-            this.uploadBlockBufs(this.calcTrianglesOffset(blocksTri), this.calcTrianglesTill(blocksTri));
+            if (this.isTimeToUpdateBufs(mapTri) || this.isTimeToUpdateBufs(blocksTri)) {
+                this.uploadMapBufs(this.calcTrianglesOffset(mapTri), this.calcTrianglesTill(mapTri));
+                this.uploadBlockBufs(this.calcTrianglesOffset(blocksTri), this.calcTrianglesTill(blocksTri));
+                this.lastBufsUpdatedT = this.getRelativeTime();
+                console.debug('Bufs were updated!');
+            }
         }
 
         private loop() {
