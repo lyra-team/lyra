@@ -96,6 +96,21 @@ module game {
         private sectorsPoints;
         private blockPositions;
 
+        // Buffer data for map
+        private keyPointCountB;
+        private pointsB;
+        private colorsB;
+        private indiciesB;
+        private hacksB;
+
+        // Bufer data for blocks
+        private keyPointCountBB;
+        private blockPointsBB;
+        private pointsBB;
+        private colorsBB;
+        private indiciesBB;
+        private normalsBB;
+
         private anaglyph = false;
         private stereo = false;
 
@@ -332,8 +347,7 @@ module game {
         }
 
         private createIndicies(n, splinesN) {
-            var indicies = new Uint16Array((n - 1) * splinesN * 2 * 3);
-            console.assert(indicies.length <= 65535);
+            var indicies = new Uint32Array((n - 1) * splinesN * 2 * 3);
             var next = 0;
             for (var i = 0; i < n - 1; i++) {
                 for (var j = 0; j < splinesN; j++) {
@@ -355,8 +369,7 @@ module game {
         }
 
         private createBlockIndicies(n) {
-            var indicies = new Uint16Array(n);
-            console.assert(n <= 65535);
+            var indicies = new Uint32Array(n);
             for (var i = 0; i < n - 1; i++) {
                 indicies[i] = i;
             }
@@ -541,8 +554,7 @@ module game {
                 this.song.start();
                 this.songLastOffset = 0;
                 this.timeLastOffset = audio.context.currentTime;
-                this.uploadMapBufs();
-                this.uploadBlockBufs();
+                this.createDataForBufs();
                 this.loop();
             }, 100);
         }
@@ -618,19 +630,66 @@ module game {
         //    return x;
         //}
 
-        private uploadMapBufs() {
-            var keyPointCount = this.keyPoints.length / 3,
-                sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE),
-                points = this.createPoints(sectorsPoints, keyPointCount, STRIP_COUNT),
-                colors = this.createColors(points.length / 3, 0.8, 0, 0.7),
-                indicies = this.createIndicies(keyPointCount, STRIP_COUNT),
-                hacks = this.generateHacks(points.length / 3);
+        private createDataForBufs() {
+            // For map:
+            this.keyPointCountB = this.keyPoints.length / 3;
+            this.sectorsPoints = map.generateSectionPoints(this.keyPoints, STRIP_COUNT, TUBE_RADIUS, SECTOR_ANGLE);
+            this.pointsB = this.createPoints(this.sectorsPoints, this.keyPointCountB, STRIP_COUNT);
+            this.colorsB = this.createColors(this.pointsB.length / 3, 0.8, 0, 0.7);
+            this.indiciesB = this.createIndicies(this.keyPointCountB, STRIP_COUNT);
+            this.hacksB = this.generateHacks(this.pointsB.length / 3);
 
-            this.sectorsPoints = sectorsPoints;
-            this.posBuf.uploadData(points);
-            this.colBuf.uploadData(colors);
-            this.hackBuf.uploadData(hacks);
-            this.indBuf.uploadData(indicies);
+            // For blocks:
+            this.keyPointCountBB = this.keyPoints.length / 3;
+            this.blockPointsBB = map.generateBlocks(this.sectorsPoints, this.blockPositions, STRIP_COUNT, [1.0, 1.0, 1.0]);
+            this.pointsBB = this.createBlockPoints(this.blockPointsBB);
+            this.colorsBB = this.createColors(this.pointsBB.length / 3, 0.2, 0.2, 1.0);
+            this.indiciesBB = this.createBlockIndicies(this.pointsBB.length / 3);
+            this.normalsBB = this.generateNormals(this.pointsBB, this.indiciesBB);
+        }
+
+        private uploadMapBufs(from, to) {
+            var points =this.pointsB,
+                colors =this.colorsB,
+                indicies =this.indiciesB,
+                hacks = this.hacksB;
+
+            var mini = indicies[from*3];
+            var maxi = indicies[from*3];
+            for(var i = from; i < to; i++) {
+                mini = Math.min(mini, indicies[i*3], indicies[i*3+1], indicies[i*3+2]);
+                maxi = Math.max(maxi, indicies[i*3], indicies[i*3+1], indicies[i*3+2]);
+            }
+
+            var n = maxi-mini+1;
+            var points_part = new Float32Array(3*n),
+                colors_part = new Float32Array(3*n),
+                hacks_part = new Float32Array(n),
+                indicies_part = new Uint16Array(3*(to-from));
+
+            for (i = mini; i <= maxi; i++) {
+                var i_part = i-mini;
+                for (var j = 0; j < 3; j++) {
+                    points_part[i_part*3+j] = points[i*3+j];
+                    colors_part[i_part*3+j] = colors[i*3+j];
+                }
+                hacks_part[i_part] = hacks[i];
+            }
+            for (i = 0; i < 3*(to-from); i++) {
+                indicies_part[i] = indicies[3*from + i] - mini;
+            }
+
+            points = points_part;
+            colors = colors_part;
+            hacks = hacks_part;
+            indicies = indicies_part;
+
+            console.assert(indicies.length <= 65535);
+
+            this.posBuf.uploadData(points);//3
+            this.colBuf.uploadData(colors);//3
+            this.hackBuf.uploadData(hacks);//1
+            this.indBuf.uploadData(indicies);//indicies
 
             var planePos = new Float32Array([
                 -1, 1, 0,
@@ -653,18 +712,48 @@ module game {
             this.planeNormBuf.uploadData(this.generateNormals(planePos, planeInd));
         }
 
-        private uploadBlockBufs() {
-            var keyPointCount = this.keyPoints.length / 3,
-                blockPoints = map.generateBlocks(this.sectorsPoints, this.blockPositions, STRIP_COUNT, [1.0, 1.0, 1.0]),
-                points = this.createBlockPoints(blockPoints),
-                colors = this.createColors(points.length / 3, 0.2, 0.2, 1.0),
-                indicies = this.createBlockIndicies(points.length / 3),
-                normals = this.generateNormals(points, indicies);
+        private uploadBlockBufs(from, to) {
+            var points = this.pointsBB,
+                colors = this.colorsBB,
+                indicies = this.indiciesBB,
+                normals = this.normalsBB;
 
-            this.blockPosBuf.uploadData(points);
-            this.blockColBuf.uploadData(colors);
-            this.blockNormBuf.uploadData(normals);
-            this.blockIndBuf.uploadData(indicies);
+            var mini = indicies[from*3];
+            var maxi = indicies[from*3];
+            for(var i = from; i < to; i++) {
+                mini = Math.min(mini, indicies[i*3], indicies[i*3+1], indicies[i*3+2]);
+                maxi = Math.max(maxi, indicies[i*3], indicies[i*3+1], indicies[i*3+2]);
+            }
+
+            var n = maxi-mini+1;
+            var points_part = new Float32Array(3*n),
+                colors_part = new Float32Array(3*n),
+                normals_part = new Float32Array(3*n),
+                indicies_part = new Uint16Array(3*(to-from));
+
+            for (i = mini; i <= maxi; i++) {
+                var i_part = i-mini;
+                for (var j = 0; j < 3; j++) {
+                    points_part[i_part*3+j] = points[i*3+j];
+                    colors_part[i_part*3+j] = colors[i*3+j];
+                    normals_part[i_part*3+j] = normals[i*3+j];
+                }
+            }
+            for (i = 0; i < 3*(to-from); i++) {
+                indicies_part[i] = indicies[3*from + i] - mini;
+            }
+
+            points = points_part;
+            colors = colors_part;
+            normals = normals_part;
+            indicies = indicies_part;
+
+            console.assert(indicies.length <= 65535);
+
+            this.blockPosBuf.uploadData(points);//3
+            this.blockColBuf.uploadData(colors);//3
+            this.blockNormBuf.uploadData(normals);//3
+            this.blockIndBuf.uploadData(indicies);//indicies
         }
 
         private initCamera() {
@@ -935,10 +1024,43 @@ module game {
             }
         }
 
+        private clamp(value, min, max) {
+            if (value < min) {
+                return min;
+            } else if (value > max) {
+                return max;
+            } else {
+                return value;
+            }
+        }
+
+        private calcTrianglesOffset(trianglesCount) {
+            var t = this.getRelativeTime();
+            var trianglesToShow = Math.min(2391, trianglesCount);
+            var offset = Math.round(trianglesCount*t-trianglesToShow*0.5);
+            return this.clamp(offset, 0, trianglesCount-1);
+        }
+
+        private calcTrianglesTill(trianglesCount) {
+            var t = this.getRelativeTime();
+            var trianglesToShow = Math.min(2391, trianglesCount);
+            var till = Math.round(trianglesCount*t+trianglesToShow*0.5);
+            return this.clamp(till, 1, trianglesCount);
+        }
+
+        private updateBufs() {
+            var mapTri = this.indiciesB.length/3;
+            var blocksTri = this.indiciesBB.length/3;
+            this.uploadMapBufs(this.calcTrianglesOffset(mapTri), this.calcTrianglesTill(mapTri));
+            this.uploadBlockBufs(this.calcTrianglesOffset(blocksTri), this.calcTrianglesTill(blocksTri));
+        }
+
         private loop() {
             this.makeFullscreen();
 
             this.getFreqs();
+
+            this.updateBufs();
 
             this.initCamera();
             this.renderBackground();
