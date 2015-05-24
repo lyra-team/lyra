@@ -323,7 +323,7 @@ module game {
 
         private createBlockIndicies(n) {
             var indicies = new Uint32Array(n);
-            for (var i = 0; i < n - 1; i++) {
+            for (var i = 0; i < n; i++) {
                 indicies[i] = i;
             }
             return indicies;
@@ -567,6 +567,18 @@ module game {
             this.colorsBB = this.createColors(this.pointsBB.length / 3, 0.2, 0.2, 1.0);
             this.indiciesBB = this.createBlockIndicies(this.pointsBB.length / 3);
             this.normalsBB = this.generateNormals(this.pointsBB, this.indiciesBB);
+            this.printLastN('blockPointsBB:', this.blockPointsBB, 100);
+            this.printLastN('pointsBB:', this.pointsBB, 100);
+            this.printLastN('indiciesBB:', this.indiciesBB, 100);
+        }
+
+        private printLastN(message, array, n) {
+            console.info(message);
+            var a = [];
+            for (var i = 0; i < n; i++) {
+                a.push(array[array.length - i - 1]);
+            }
+            console.info(a);
         }
 
         private isBlockNotCatched(i) {
@@ -1052,6 +1064,7 @@ module game {
                     scoreChanged = true;
                 }
             }
+            console.info('planeStripPosition=', planeStripPosition, this.blockPositions[0][1]);
             if (scoreChanged) {
                 this.scoreEl.innerHTML = "Score: " + this.score;
                 this.scoreEl.classList.add(C_GAME_SCORE_CHANGED);
