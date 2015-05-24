@@ -1035,11 +1035,11 @@ module game {
                 this.nextBlockIndex += 1;
             }
             if (this.nextBlockIndex >= this.blockPositions.length
-                || this.blockPositions[this.nextBlockIndex][0] > sectorPositionIndex) {
+                || this.blockPositions[this.nextBlockIndex][0] > sectorPositionIndex + 1.5) {
                 return;
             }
             var scoreChanged = false;
-            for (var i = this.nextBlockIndex; i < this.blockPositions.length && this.blockPositions[i][0] == sectorPositionIndex; i++) {
+            for (var i = this.nextBlockIndex; i < this.blockPositions.length && this.blockPositions[i][0] < sectorPositionIndex + 1.5; i++) {
                 if (this.blockPositions[i][1] == planeStripPosition && this.isBlockNotCatched(i)) {
                     this.score += BLOCK_SCORE;
                     for (var j = 0; j < 36; j++) {
@@ -1092,7 +1092,7 @@ module game {
             this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));
 
-            if (this.getRelativeTime() >= 1.0 && !this.root.classList.contains(C_GAME_ENDED))
+            if ((1.0-this.getRelativeTime()) * this.keyPoints.length / 3 < 100 && !this.root.classList.contains(C_GAME_ENDED))
                 this.root.classList.add(C_GAME_ENDED);
         }
     }

@@ -9,10 +9,14 @@ class App {
     private game: game.Game;
 
     private PERMANENT_MENU_ITEMS: MainMenuItem[] = [
-        new MainMenuButton("Play demo song").addOnClick((evt) => {
-            this.loadAudioAndStart("demos/webgl/metallica.mp3");
+        new MainMenuButton("Play 'Diorama - Child of Entertainment'").addOnClick((evt) => {
+            this.loadAudioAndStart("demos/webgl/8_diorama_child_of_entertainment.mp3");
         }),
-        new MainMenuLabel("Or drag and drop mp3 file here"),
+        new MainMenuButton("Play 'Diary of Dreams - The Luxury of Insanity'").addOnClick((evt) => {
+            this.loadAudioAndStart("demos/webgl/7_diary_of_dreams_the_luxury_ofinsanity.mp3");
+        }),
+        new MainMenuLabel("Or drag and drop <b>your MP3</b> file here"),
+        new MainMenuLabel("Press Left/Right arrows for control"),
         new MainMenuLabel("Press A key for anaglyph"),
         new MainMenuLabel("Press S key for stereo (OculusRift or so)")
     ];
