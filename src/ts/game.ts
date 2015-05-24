@@ -566,22 +566,10 @@ module game {
             this.colorsBB = this.createColors(this.pointsBB.length / 3, 0.2, 0.2, 1.0);
             this.indiciesBB = this.createBlockIndicies(this.pointsBB.length / 3);
             this.normalsBB = this.generateNormals(this.pointsBB, this.indiciesBB);
-            this.printLastN('blockPointsBB:', this.blockPointsBB, 100);
-            this.printLastN('pointsBB:', this.pointsBB, 100);
-            this.printLastN('indiciesBB:', this.indiciesBB, 100);
-        }
-
-        private printLastN(message, array, n) {
-            console.info(message);
-            var a = [];
-            for (var i = 0; i < n; i++) {
-                a.push(array[array.length - i - 1]);
-            }
-            console.info(a);
         }
 
         private isBlockNotCatched(i) {
-            return Math.round(this.colorsBB[i*3]*10) == 2 &&  Math.round(this.colorsBB[i*3+1]*10) == 2 &&  Math.round(this.colorsBB[i*3+2]*10) == 10;
+            return Math.round(this.colorsBB[3*i*36]*10) == 2 &&  Math.round(this.colorsBB[3*i*36+1]*10) == 2 &&  Math.round(this.colorsBB[3*i*36+2]*10) == 10;
         }
 
         private uploadMapBufs(from, to) {
@@ -1063,7 +1051,6 @@ module game {
                     scoreChanged = true;
                 }
             }
-            console.info('planeStripPosition=', planeStripPosition, this.blockPositions[0][1]);
             if (scoreChanged) {
                 this.scoreEl.innerHTML = "Score: " + this.score;
                 this.scoreEl.classList.add(C_GAME_SCORE_CHANGED);
