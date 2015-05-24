@@ -22,12 +22,16 @@ canvas.game--canvas {
     display: block;
 }
 
-div.game--score {
+div.game--scoreContainer {
     position: absolute;
     top: 20px;
     left: 0;
     right: 0;
     text-align: center;
+}
+
+div.game--score {
+    display: inline-block;
     font-size: 50px;
     color: whitesmoke;
 
