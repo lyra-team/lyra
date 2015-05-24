@@ -4,7 +4,10 @@
 ///<reference path="webgl/map.ts"/>
 
 module game {
-    var C_GAME_CANVAS = "game--canvas";
+    var C_GAME_STARTED = "game-started",
+        C_GAME_CANVAS = "game--canvas",
+        C_GAME_SCORE = "game--score",
+        C_GAME_SCORE_CHANGED = "game--score-changed";
     var LIGHTS_COUNT = 2;
     var FREQS_BINS_COUNT = 6;
     var gl;
@@ -18,11 +21,6 @@ module game {
     var CAM_TARGET_HEIGHT = 3;
     var CAM_BACK_OFFSET = 10;
     var TILT_STEP = 0.03;
-    var MAX_FACE_TILT = 0.35;
-    var MAX_HEAD_SHIFT = 15;
-    var ANGLE_ALPHA = 0.1;
-    var X_ALPHA = 0.1;
-    var STICKING_ALPHA = 0.05;
 
     var BLOCK_SCORE = 239;
 
@@ -48,6 +46,7 @@ module game {
     export class Game {
         private root:HTMLElement;
         private canvas:HTMLCanvasElement;
+        private scoreEl:HTMLElement;
         private glContext:webgl.GLContext;
 
         private mapShader:webgl.Shader;
@@ -84,9 +83,6 @@ module game {
         private freqData;
         private freqBins;
 
-        private htracker:headtrackr.Tracker;
-        private head:vec3 = [0, 0, 0];
-        private faceAngle = 0;
         private tiltAngle = 0;
 
         private planeModel;
@@ -126,6 +122,7 @@ module game {
         constructor(rootId) {
             this.root = ui.$(rootId);
             this.canvas = ui.$$<HTMLCanvasElement>("." + C_GAME_CANVAS, this.root);
+            this.scoreEl = ui.$$("." + C_GAME_SCORE, this.root);
 
             this.initWebGL();
             this.initInputEvents();
@@ -219,46 +216,7 @@ module game {
                 this.tiltAngle = Math.min(SECTOR_ANGLE / 2, this.tiltAngle + TILT_STEP);
                 return true;
             });
-
-
-            //var statusMessages = {
-            //    "whitebalance" : "checking for stability of camera whitebalance",
-            //    "detecting" : "Detecting face",
-            //    "hints" : "Hmm. Detecting the face is taking a long time",
-            //    "redetecting" : "Lost track of face, redetecting",
-            //    "lost" : "Lost track of face",
-            //    "found" : "Tracking face"
-            //};
-            //
-            //document.addEventListener("headtrackrStatus", (event:any) => {
-            //    if (event.status in statusMessages) {
-            //        console.log(statusMessages[event.status]);
-            //    }
-            //}, true);
-            //
-            //document.addEventListener("headtrackingEvent", (event:any) => {
-            //    this.onHeadMoved(event.x, event.y, event.z);
-            //});
-            //
-            //document.addEventListener("facetrackingEvent", (event:any) => {
-            //    this.onFaceLeaned(event.angle);
-            //});
-            //
-            //this.htracker = new headtrackr.Tracker({calcAngles : true, ui : false});
-            //this.htracker.init(ui.$("inputVideo"), ui.$("inputCanvas"));
-            //this.htracker.start();
         }
-
-        //private onHeadMoved(x, y, z) {
-        //    var alpha = X_ALPHA;
-        //    this.head = vec3.add(vec3.scale([x, y, z], alpha), vec3.scale(this.head, 1 - alpha));
-        //}
-        //
-        //private onFaceLeaned(angle) {
-        //    var alpha = ANGLE_ALPHA;
-        //    angle -= Math.PI / 2;
-        //    this.faceAngle = angle * alpha + this.faceAngle * (1 - alpha);
-        //}
 
         private makeFullscreen() {
             if (this.canvas.width !== this.canvas.clientWidth) {
@@ -280,21 +238,6 @@ module game {
                 uvs[i * 6 + 5] = -1;
             }
             return uvs;
-
-            //var uvs = new Float32Array((n - 1) * splinesN * 2 * 3); TODO: redo so
-            //for(var i = 0; i < n - 1; i++) {
-            //    var sign = 1;
-            //    for (var j = 0; j < splinesN; j++) {
-            //        uvs[i * (splinesN + 1) * 6 + 6 * j] = sign;
-            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 1] = -sign;
-            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 2] = sign;
-            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 3] = -sign;
-            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 4] = sign;
-            //        uvs[i * (splinesN + 1) * 6 + 6 * j + 5] = -sign;
-            //        sign = -sign;
-            //    }
-            //}
-            //return uvs;
         }
 
         private createBlockPoints(points) {
@@ -548,6 +491,7 @@ module game {
             setTimeout(() => {
                 this.preprocessSong(songBuffer);
                 ui.$('loadOverlay').classList.remove('overlay-visible');
+                this.root.classList.add(C_GAME_STARTED);
 
                 this.eye = [0, 0, 0];
                 this.lookAt = [0, 0, 0];
@@ -604,45 +548,7 @@ module game {
 
         private getShipTilt() {
             return this.tiltAngle;
-            //var signA = this.faceAngle < 0 ? -1 : 1,
-            //   absA = Math.abs(this.faceAngle);
-            //var faceLean = (signA * Math.min(absA, MAX_FACE_TILT) + MAX_FACE_TILT) /
-            //        (2 * MAX_FACE_TILT);
-            //
-            //var signX = this.head[0] < 0 ? -1 : 1,
-            //   absX = Math.abs(this.head[0]);
-            //var headShift = (-signX * Math.min(absX, MAX_HEAD_SHIFT) + MAX_HEAD_SHIFT) /
-            //        (2 * MAX_HEAD_SHIFT);
-            //
-            //var p = (2 * faceLean + 3 * headShift) / 5;
-            //
-            //return this.solveAngle(p);
         }
-
-        //private solveAngle(p) {
-        //    var a = SECTOR_ANGLE * 2.5 / STRIP_COUNT;
-        //    var b = 1 / (2 * a);
-        //    var alpha = STICKING_ALPHA;
-        //
-        //    var A = a * alpha / Math.PI;
-        //    var B = b;
-        //    var C = p - 0.5;
-        //    var w = 5 * Math.PI / a;
-        //
-        //    var l = -a;
-        //    var r = a;
-        //    var it = 0;
-        //    while (it < 100 && r - l > Math.PI / 500) {
-        //        var x = (l + r) / 2;
-        //        var y = A * Math.sin(w * x) + B * x;
-        //        if (y < C) {
-        //            l = x;
-        //        } else {
-        //            r = x;
-        //        }
-        //    }
-        //    return x;
-        //}
 
         private createDataForBufs() {
             // For map:
@@ -1132,6 +1038,7 @@ module game {
             if (this.blockPositions[this.nextBlockIndex][0] > sectorPositionIndex) {
                 return;
             }
+            var scoreChanged = false;
             for (var i = this.nextBlockIndex; i < this.blockPositions.length && this.blockPositions[i][0] == sectorPositionIndex; i++) {
                 if (this.blockPositions[i][1] == planeStripPosition && this.isBlockNotCatched(i)) {
                     this.score += BLOCK_SCORE;
@@ -1141,8 +1048,15 @@ module game {
                         this.colorsBB[3*i*36+3*j+2] = 0.2;
                     }
                     this.blocksWereUpdated = true;
-                    console.info('Score: ' + this.score);
+                    scoreChanged = true;
                 }
+            }
+            if (scoreChanged) {
+                this.scoreEl.innerHTML = "Score: " + this.score;
+                this.scoreEl.classList.add(C_GAME_SCORE_CHANGED);
+                setTimeout(() => {
+                    this.scoreEl.classList.remove(C_GAME_SCORE_CHANGED);
+                }, 0);
             }
         }
 
