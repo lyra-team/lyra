@@ -5,6 +5,7 @@
 
 module game {
     var C_GAME_STARTED = "game-started",
+        C_GAME_ENDED = "game-ended",
         C_GAME_CANVAS = "game--canvas",
         C_GAME_SCORE = "game--score",
         C_GAME_SCORE_CHANGED = "game--score-changed";
@@ -534,7 +535,7 @@ module game {
         }
 
         private getAbsoluteTime() {
-            return audio.context.currentTime - this.timeLastOffset + this.songLastOffset;
+            return Math.min(audio.context.currentTime - this.timeLastOffset + this.songLastOffset, this.songBuffer.duration);
         }
 
         private getRelativeTime() {
@@ -681,14 +682,12 @@ module game {
         }
 
         private initCamera() {
-            var keyPointsCount = this.keyPoints.length / 3,
-                relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointsCount;
+            var keyPointsCount = this.keyPoints.length / 3;
 
             var getAbsPosition = (relPosition): any => {
-                relPosition = Math.max(0, Math.min(relPosition, keyPointsCount));
-                var prevPointIdx = Math.floor(relPosition),
-                    nextPointIdx = Math.min(prevPointIdx + 1, keyPointsCount),
+                relPosition = Math.max(0, Math.min(relPosition, keyPointsCount - 1));
+                var prevPointIdx = Math.min(Math.floor(relPosition), keyPointsCount - 2),
+                    nextPointIdx = prevPointIdx + 1,
                     prevPoint = util.pickVec3(this.keyPoints, prevPointIdx),
                     nextPoint = util.pickVec3(this.keyPoints, nextPointIdx);
                 return vec3.add(prevPoint, vec3.scale(vec3.subtract(nextPoint, prevPoint), relPosition - prevPointIdx));
@@ -708,7 +707,7 @@ module game {
             };
 
             var relTime = this.getRelativeTime(),
-                relPosition = relTime * keyPointsCount,
+                relPosition = relTime * (keyPointsCount - 1),
                 absPosition = getAbsPositionAndUp(relPosition);
             var l = relPosition, r = keyPointsCount;
             while (r - l > 1e-6) {
@@ -1032,10 +1031,12 @@ module game {
             var keyPointsCount = this.keyPoints.length / 3;
             var sectorPositionIndex = Math.round(this.getRelativeTime() * keyPointsCount);
             var planeStripPosition = this.getShipStripNumber();
-            while (this.blockPositions[this.nextBlockIndex][0] < sectorPositionIndex) {
+            while (this.nextBlockIndex < this.blockPositions.length
+                    && this.blockPositions[this.nextBlockIndex][0] < sectorPositionIndex) {
                 this.nextBlockIndex += 1;
             }
-            if (this.blockPositions[this.nextBlockIndex][0] > sectorPositionIndex) {
+            if (this.nextBlockIndex >= this.blockPositions.length
+                || this.blockPositions[this.nextBlockIndex][0] > sectorPositionIndex) {
                 return;
             }
             var scoreChanged = false;
@@ -1091,6 +1092,9 @@ module game {
             this.renderPlane();
             this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));
+
+            if (this.getRelativeTime() >= 1.0 && !this.root.classList.contains(C_GAME_ENDED))
+                this.root.classList.add(C_GAME_ENDED);
         }
     }
 }
