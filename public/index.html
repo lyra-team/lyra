@@ -222,7 +222,7 @@
     </script>
 
     <script id="lights_fshader" type="x-shader/x-fragment">
-        #line 79
+        #line 225
         precision mediump float;
 
         const float transparency = 0.0;
@@ -239,10 +239,22 @@
         void main(void) {
             vec4 color = vec4(0.0);
             for (int i = 0; i < LIGHTS_COUNT; i++) {
-                float intencity = 0.5 + uFreqBins[0] * 1.0;
+                float intencity = 2.0 + pow(uFreqBins[0], 10.0) * 3.0;
                 float distance = length((vPosition.xy - uLightPosition[i]) * vec2(1.0, uRatio));
                 float attenuation = 1.0/(1.0 + 100.0 * distance + 100.0 * distance * distance);
-                color += intencity * vec4(attenuation, attenuation, attenuation, 1.0 - transparency) * vec4(uLightColor[i], 1.0);
+                float a = (1.0 + sin(uTime*0.5)) / 2.0;
+                vec3 color1;
+                vec3 color2;
+                //if (i == 0) {
+                float b = (1.0 + sin(uTime*0.5 + 3.14159265359)) / 2.0;
+                    color1 = vec3(0.5, 1.0, 0.3) * b + vec3(0.5, 0.3, 1.0) * (1.0 - b);
+                    color2 = vec3(0.5, 1.0, 0.3) * b + vec3(0.5, 0.3, 1.0) * (1.0 - b);
+                //} else {
+                  //  color1 = vec3(0.5, 0.3, 1.0);
+                    //color2 = vec3(0.5, 1.0, 0.3);
+                //}
+                vec3 colorRes = color1 * a + (1.0 - a) * color2;
+                color += intencity * vec4(attenuation, attenuation, attenuation, 1.0 - transparency) * vec4(colorRes, 1.0);
             }
             gl_FragColor = color;
         }

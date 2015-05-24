@@ -1010,29 +1010,65 @@ module game {
 
             this.lightShader.vertexAttribute('aPosition', this.posRectBuf);
 
-            var lightPositions = [
-                [-0.5, 0.0],
-                [0.5, 0.0]
-            ];
             var lightColors = [
-                [0, 1, 0],
-                [1, 0, 0]
+                [1, 1, 0],
+                [1, 0, 1]
             ];
-            for (var i = 0; i < LIGHTS_COUNT; i++) {
-                this.lightShader.uniformF('uLightPosition[' + i.toString() + ']', lightPositions[i][0], lightPositions[i][1]);
-                this.lightShader.uniformF('uLightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
-            }
+
             for (var i = 0; i < FREQS_BINS_COUNT; i++) {
-                this.lightShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i]/255.0);
+                this.lightShader.uniformF('uFreqBins[' + i.toString() + ']', this.freqBins[i] / 255.0);
             }
-            this.lightShader.uniformF('uRatio', this.canvas.height/this.canvas.width);
             this.lightShader.uniformF('uTime', this.getAbsoluteTime());
 
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-            gl.enable(gl.BLEND);
-            gl.disable(gl.DEPTH_TEST);
-            this.lightShader.draw(this.canvas.width, this.canvas.height, gl.TRIANGLES, this.indRectBuf);
-            gl.disable(gl.BLEND);
+            var that = this;
+            var draw = function (width, x) {
+                that.lightShader.uniformF('uRatio', that.canvas.height / width);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                gl.enable(gl.BLEND);
+                gl.disable(gl.DEPTH_TEST);
+                that.lightShader.draw(width, that.canvas.height, gl.TRIANGLES, that.indRectBuf, x);
+                gl.disable(gl.BLEND);
+            };
+            var setLightPoses = function(cameraMtx) {
+                var lightPositions = [
+                    [-1.0, 1.0, 0.0],
+                    [-1.0, -1.0, 0.0]
+                ];
+                for (var i = 0; i < LIGHTS_COUNT; i++) {
+                    var wldPos = mat4.multiplyVec3(that.planeModel, lightPositions[i]);
+                    var pos = mat4.multiplyVec3(cameraMtx, wldPos);
+                    pos[0] = pos[0] / pos[2];
+                    pos[1] = pos[1] / pos[2];
+                    var lightPositionX = pos[0];
+                    var lightPositionY = pos[1];
+                    that.lightShader.uniformF('uLightPosition[' + i.toString() + ']', lightPositionX, lightPositionY);
+                    that.lightShader.uniformF('uLightColor[' + i.toString() + ']', lightColors[i][0], lightColors[i][1], lightColors[i][2]);
+                }
+            };
+            if (this.anaglyph) {
+                var leftCameraMtx = this.createCameraMtx(this.canvas.width/this.canvas.height, this.eye, this.viewAngleVert, this.lookAt, -EYE_SHIFT), rightCameraMtx = this.createCameraMtx(this.canvas.width/this.canvas.height, this.eye, this.viewAngleVert, this.lookAt, EYE_SHIFT);
+                gl.clear(gl.DEPTH);
+                gl.colorMask(1, 0, 0, 0);
+                setLightPoses(leftCameraMtx);
+                draw(this.canvas.width, 0);
+                gl.colorMask(0, 1, 1, 1);
+                gl.clear(gl.DEPTH_BUFFER_BIT);
+                setLightPoses(rightCameraMtx);
+                draw(this.canvas.width, 0);
+                gl.colorMask(1, 1, 1, 1);
+            }
+            else if (this.stereo) {
+                var leftCameraMtx = this.createCameraMtx(0.5*this.canvas.width/this.canvas.height, this.eye, this.viewAngleVert, this.lookAt, -EYE_SHIFT), rightCameraMtx = this.createCameraMtx(0.5*this.canvas.width/this.canvas.height, this.eye, this.viewAngleVert, this.lookAt, EYE_SHIFT);
+                setLightPoses(leftCameraMtx);
+                draw(this.canvas.width / 2, 0);
+                setLightPoses(rightCameraMtx);
+                draw(this.canvas.width / 2, this.canvas.width / 2);
+            }
+            else {
+                var centerMatrix = this.createCameraMtx(this.canvas.width/this.canvas.height, this.eye, this.viewAngleVert, this.lookAt, 0);
+                setLightPoses(centerMatrix);
+                draw(this.canvas.width, 0);
+            }
         }
 
         private getFreqs() {
@@ -1139,7 +1175,7 @@ module game {
             this.renderMap();
             this.renderBlocks();
             this.renderPlane();
-            //this.renderLights();
+            this.renderLights();
             window.requestAnimationFrame(this.loop.bind(this));
         }
     }
