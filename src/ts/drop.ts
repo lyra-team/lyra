@@ -52,6 +52,8 @@ class DropOverlay {
         evt.preventDefault();
         this.hide();
 
+        ui.$('loadOverlay').classList.add('overlay-visible');
+
         var file = evt.dataTransfer.files[0],
             reader = new FileReader();
         reader.addEventListener("load", this.onLoad.bind(this));

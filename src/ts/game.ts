@@ -488,7 +488,6 @@ module game {
             this.songBuffer = songBuffer;
             this.song = audio.context.createBufferSource();
 
-            ui.$('loadOverlay').classList.add('overlay-visible');
             setTimeout(() => {
                 this.preprocessSong(songBuffer);
                 ui.$('loadOverlay').classList.remove('overlay-visible');

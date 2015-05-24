@@ -45,6 +45,7 @@ class App {
     }
 
     private loadAudioAndStart(url: string) {
+        ui.$('loadOverlay').classList.add('overlay-visible');
         var xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
         xhr.responseType = 'arraybuffer';
