@@ -24,6 +24,8 @@ module game {
     var X_ALPHA = 0.1;
     var STICKING_ALPHA = 0.05;
 
+    var BLOCK_SCORE = 239;
+
     function complexNorm(real, imag) {
         return Math.sqrt(real * real + imag * imag);
     }
@@ -111,10 +113,15 @@ module game {
         private indiciesBB;
         private normalsBB;
 
+        private nextBlockIndex = 0;
+        private blocksWereUpdated = false;
+
         private lastBufsUpdatedT = 0;
 
         private anaglyph = false;
         private stereo = false;
+
+        private score = 0;
 
         constructor(rootId) {
             this.root = ui.$(rootId);
@@ -590,6 +597,11 @@ module game {
             return this.getAbsoluteTime() / this.songBuffer.duration;
         }
 
+        private getShipStripNumber() {
+            var relativeAngle = this.getShipTilt() - (-SECTOR_ANGLE / 2);
+            return this.clamp(Math.floor((relativeAngle / SECTOR_ANGLE) * STRIP_COUNT), 0, STRIP_COUNT - 1);
+        }
+
         private getShipTilt() {
             return this.tiltAngle;
             //var signA = this.faceAngle < 0 ? -1 : 1,
@@ -648,6 +660,10 @@ module game {
             this.colorsBB = this.createColors(this.pointsBB.length / 3, 0.2, 0.2, 1.0);
             this.indiciesBB = this.createBlockIndicies(this.pointsBB.length / 3);
             this.normalsBB = this.generateNormals(this.pointsBB, this.indiciesBB);
+        }
+
+        private isBlockNotCatched(i) {
+            return Math.round(this.colorsBB[i*3]*10) == 2 &&  Math.round(this.colorsBB[i*3+1]*10) == 2 &&  Math.round(this.colorsBB[i*3+2]*10) == 10;
         }
 
         private uploadMapBufs(from, to) {
@@ -1064,6 +1080,30 @@ module game {
             }
         }
 
+        private checkBlocksCollision() {
+            var keyPointsCount = this.keyPoints.length / 3;
+            var sectorPositionIndex = Math.round(this.getRelativeTime() * keyPointsCount);
+            var planeStripPosition = this.getShipStripNumber();
+            while (this.blockPositions[this.nextBlockIndex][0] < sectorPositionIndex) {
+                this.nextBlockIndex += 1;
+            }
+            if (this.blockPositions[this.nextBlockIndex][0] > sectorPositionIndex) {
+                return;
+            }
+            for (var i = this.nextBlockIndex; i < this.blockPositions.length && this.blockPositions[i][0] == sectorPositionIndex; i++) {
+                if (this.blockPositions[i][1] == planeStripPosition && this.isBlockNotCatched(i)) {
+                    this.score += BLOCK_SCORE;
+                    for (var j = 0; j < 36; j++) {
+                        this.colorsBB[3*i*36+3*j] = 0.2;
+                        this.colorsBB[3*i*36+3*j+1] = 1.0;
+                        this.colorsBB[3*i*36+3*j+2] = 0.2;
+                    }
+                    this.blocksWereUpdated = true;
+                    console.info('Score: ' + this.score);
+                }
+            }
+        }
+
         private updateBufs() {
             var mapTri = this.indiciesB.length/3;
             var blocksTri = this.indiciesBB.length/3;
@@ -1072,6 +1112,10 @@ module game {
                 this.uploadBlockBufs(this.calcTrianglesOffset(blocksTri), this.calcTrianglesTill(blocksTri));
                 this.lastBufsUpdatedT = this.getRelativeTime();
                 console.debug('Bufs were updated!');
+            } else if (this.blocksWereUpdated) {
+                this.uploadBlockBufs(this.calcTrianglesOffset(blocksTri), this.calcTrianglesTill(blocksTri));
+                console.debug('Blocks bufs were updated!');
+                this.blocksWereUpdated = false;
             }
         }
 
@@ -1079,6 +1123,8 @@ module game {
             this.makeFullscreen();
 
             this.getFreqs();
+
+            this.checkBlocksCollision();
 
             this.updateBufs();
 
