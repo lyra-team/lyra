@@ -18,7 +18,10 @@ class App {
         new MainMenuLabel("Or drag and drop <b>your MP3</b> file here"),
         new MainMenuLabel("Press Left/Right arrows for control"),
         new MainMenuLabel("Press A key for anaglyph"),
-        new MainMenuLabel("Press S key for stereo (OculusRift or so)")
+        new MainMenuLabel("Press S key for stereo (OculusRift or so)"),
+        new MainMenuLabel("Links: <a href=\"https://github.com/lyra-team\">GitHub</a>, <a href=\"http://hackday.ru/hackday-36/projects#project-1121\">HackDay project</a>"),
+        new MainMenuLabel("With head-control (by webcam): <a href=\"http://polarnick239.github.io/lyra/\">Lyra (old)</a>"),
+        new MainMenuLabel("Winner of Autodesc nomination 'Original 3D web application.' - <a href=\"http://hackday.ru/hackday-36/report\">report</a>"),
     ];
 
     constructor(apiId: number) {
